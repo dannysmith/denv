@@ -344,3 +344,20 @@ The denylist blocks: sudo, su, reboot/shutdown, user management, disk management
 5. **fnm (not nvm)** for Node version management - fnm is cross-platform and works on Linux.
 6. **The npm-wrappers pattern** enforces bun preference interactively - would work as-is in Linux.
 7. **MCP servers use `npx`** - they need Node.js available, which would be in the base template anyway.
+
+---
+
+## Starting Points for Research
+
+> **Note**: This is not a research brief or a list of decisions to be made. It's just a loose collection of areas and questions that came up during the requirements conversation. The actual research process should focus on exploring the high-level options available for achieving the requirements above, evaluating trade-offs, and narrowing down to a recommended approach. These are just some things that might be worth looking into along the way.
+
+- What high-level approaches exist for ring-fenced dev environments on macOS? (Docker containers, Linux VMs, macOS VMs, hybrid approaches, etc.)
+- How do different container/VM runtimes compare for this use case? (Docker Desktop, OrbStack, Lima, UTM, Apple Virtualization.framework, Colima, etc.)
+- How does VS Code / Cursor Remote Development work with containers and VMs? What are the UX implications?
+- How does clipboard image paste behave when working in a terminal connected to a remote/container environment? (Relevant to the fast image-sharing requirement.)
+- What's involved in running Playwright in a headless Linux environment?
+- How does port forwarding work across the various approaches? (Relevant to web dev server access.)
+- How granular can Claude Code's permission model get? Can it distinguish `gh api GET` from `gh api POST`? Are hooks a viable mechanism for this?
+- What does the Tauri dev workflow look like when the code is in a container but the native app needs to run on the host?
+- What are the options for structuring the base template? (Container image, provisioning scripts, snapshots, layered approaches, etc.)
+- How do existing "dev container" standards (e.g., devcontainers spec) relate to this use case?
