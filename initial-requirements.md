@@ -199,3 +199,148 @@ Both paste a local file path under the hood. Inside a container, these host path
 > I'm comfortable in a Linux environment and use very few macOS-specific CLI tools for dev. I'm certainly interested in Apple's Virtualization Framework as an option but it's not at all a requirement. My dev projects mostly do not require any macOS-specific stuff, with the exception of Tauri projects.
 
 **Conclusion**: Linux is fine. This opens up Docker containers as the most resource-efficient option. macOS VMs (via Virtualization.framework or similar) remain an option but are not required. Tauri is the one known exception where macOS is needed - to be handled as a special case.
+
+---
+
+## Current Local Environment (Reference)
+
+The following documents Danny's current local Mac development setup as of March 2026. This serves as the "source of truth" for what the ring-fenced environment needs to replicate or adapt.
+
+### Machine
+
+- macOS (Darwin 25.2.0), Apple Silicon (arm64)
+- Terminal: Ghostty
+- Editor: Cursor (VS Code fork, used without AI features)
+- Password manager: 1Password (the `op` CLI is not currently installed but could be used for scoped secret access in containers if needed)
+
+### Dotfiles
+
+Managed with [Thoughtbot's rcm](http://thoughtbot.github.io/rcm/rcm.7.html). Repo at `~/.dotfiles/`, symlinked into `~` via `rcup`.
+
+Key files:
+- **`zshrc`** - Oh My Zsh setup, plugins, fnm init, tdn completions, GITHUB_TOKEN loading
+- **`commonrc`** - shared shell config sourced by both bash and zsh: aliases, env vars, cargo init, rbenv init, npm-wrappers, sources `.commonrc.local` for machine-local secrets
+- **`pathrc`** - PATH construction (homebrew, fnm, rbenv, bun, pnpm, cargo, etc.)
+- **`npm-wrappers`** - shell functions that wrap `npm`, `pnpm`, `npx` to interactively suggest `bun`/`bunx` instead
+- **`gitconfig`** - aliases, colors, `gh auth git-credential` for HTTPS GitHub auth, pull rebase, verbose commits, LFS
+- **`gitignore_global`** - comprehensive global gitignore (OS files, env files, node_modules, pycache, etc.)
+- **`claude/CLAUDE.md`** - global Claude Code instructions (symlinked to `~/.claude/CLAUDE.md`)
+- **`claude/settings.json`** - global Claude Code settings (symlinked to `~/.claude/settings.json`)
+- **`.commonrc.local`** pattern - not in the dotfiles repo; used for machine-local secrets and config
+
+**macOS-specific items in dotfiles that would need Linux adaptation:**
+- `pathrc` references macOS app paths (`/Applications/Postgres.app`, `/Applications/Obsidian.app`)
+- `pathrc` has macOS-specific pnpm home (`/Users/danny/Library/pnpm`)
+- Oh My Zsh plugins include `macos` and `brew` (both have Linux equivalents or can be swapped)
+- `commonrc` has `alias c="cursor"` (Cursor invocation would differ in a remote/container context)
+- `ARCHFLAGS` set to x86_64 (outdated, running on ARM - wouldn't be needed in Linux)
+
+### Shell Setup
+
+- **Zsh** with **Oh My Zsh**
+- Custom prompt theme (`dannysmith`) - shows directory, git branch/status, coloured arrow
+- **Plugins**: `git` (aliases), `brew` (completions), `macos` (macOS helpers), `zsh-autosuggestions`
+- Homebrew shell completions enabled
+- Key aliases: `g`=git, `gst`=git status -s, `gcm`=git commit -m, `gco`=git checkout, `cat`=bat, `rm`=rm -i, `c`=cursor, `dev`=cd ~/dev, `sp`=cd ~/scratchpad, etc.
+
+### Runtimes & Version Managers
+
+| Runtime | Version(s) | Manager | Notes |
+|---------|-----------|---------|-------|
+| **Node.js** | v22.19.0 (default), v22.17.1, v20.11.0, v18.17.1 | `fnm` | Fast Node Manager |
+| **Bun** | 1.3.9 | direct install | Preferred JS/TS package manager |
+| **Python** | 3.14.3 | Homebrew + `uv` | `uv` is preferred for Python project/package management |
+| **Ruby** | 4.0.0 | `rbenv` | |
+| **Rust** | 1.92.0 | `cargo` (rustup) | |
+| **Java** | OpenJDK 21.0.10 | Homebrew + Temurin cask | |
+
+### Homebrew Packages (Dev-Relevant)
+
+**Version control & GitHub**: git, gh, diff-so-fancy
+**JS/TS ecosystem**: bun, node, fnm, pnpm
+**Python ecosystem**: python@3.13, python@3.14, uv, pipx
+**Ruby ecosystem**: ruby, rbenv, ruby-build
+**Java**: openjdk, temurin@21 (cask)
+**Build tools**: cmake, autoconf
+**CLI utilities (likely wanted in environments)**: bat, tree, jq, httpie, ffmpeg, vim, html2text, rcm
+**Content/text tools**: proselint, write-good, tesseract
+**AI tools**: llm (Simon Willison's CLI), gemini-cli
+**Other**: tdn (task management CLI), terminal-notifier, docker, gnupg, sqlite
+**Container/VM tooling**: OrbStack (cask) - a lightweight Docker Desktop alternative, already installed
+
+**Casks**: orbstack, bruno (API client), temurin@21, asset-catalog-tinkerer
+
+### Claude Code Setup
+
+- **Version**: 2.1.52
+- **Location**: `~/.local/bin/claude`
+- **Auth**: web-based login (`/login` command)
+- **`alwaysThinkingEnabled`**: true
+
+#### Global Settings (`~/.claude/settings.json`)
+
+The current allowlist is deliberately conservative for host machine safety. It permits:
+- All Read/LS operations
+- Common read-only shell commands (ls, cat, head, tail, grep, find, diff, tree, etc.)
+- Read-only git commands (status, log, show, diff, branch, remote)
+- Read-only gh commands (repo view, pr list/view, issue list/view, status)
+- A few build check commands (cargo check, bun/pnpm/npm run check)
+- WebFetch for a few specific domains only (github.com, ui.shadcn.com, docs.anthropic.com)
+- MCP: playwright and context7
+- Some skills (tdn, css-expert, task-management)
+
+The denylist blocks: sudo, su, reboot/shutdown, user management, disk management, mount/umount, eval/exec/source, spawning sub-shells (bash/sh/zsh/fish), crontab, iptables/ufw.
+
+**In the ring-fenced environment**, this would be replaced with a much more permissive config - essentially allowing everything locally, while still gating commands that write to external services.
+
+#### Enabled Plugins
+
+| Plugin | ID | Dev-Relevant? |
+|--------|----|---------------|
+| Personal skills | `personal@dannysmith` | Partially (dev:prime-context, dev:docs-update, dev:tasks-*, dev:initai are dev-relevant; morning, danny-voice-writer less so) |
+| Playwright CLI | `playwright-cli@playwright-cli` | Yes |
+| CSS Expert | `css-expert@dannysmith` | Yes |
+| Frontend Design | `frontend-design@claude-plugins-official` | Yes |
+| Writing | `writing@dannysmith` | Yes (useful for docs, READMEs, etc.) |
+| TDN (task management) | `tdn@tdn-marketplace` | No (personal task management, not per-project) |
+| Obsidian | `obsidian@obsidian-skills` | No (local-only, Obsidian vault) |
+
+#### MCP Servers
+
+| MCP | Source | Dev-Relevant? | How it runs |
+|-----|--------|---------------|-------------|
+| **Context7** | Plugin (claude-plugins-official) | Yes | `npx -y @upstash/context7-mcp` - needs Node.js |
+| **Playwright** | Plugin (playwright-cli) | Yes | `npx @playwright/mcp@latest` - needs Node.js + browser |
+| **Notion** | Claude.ai built-in integration | No | Runs server-side via Claude.ai, not locally |
+
+#### Skills (Dev-Relevant)
+
+- `playwright-cli` - browser automation, testing, screenshots
+- `css-expert` - modern CSS implementation
+- `frontend-design` - production-grade frontend interfaces
+- `writing:guide` - writing and editing guide (useful for docs)
+- `writing:writing-analyser` - systematic writing quality analysis
+- `personal:dev:prime-context` - prime new session with project context
+- `personal:dev:docs-update` - update docs based on recent changes
+- `personal:dev:tasks-new` / `tasks-newgh` / `tasks-init` / `tasks-renumber` - project task management
+- `personal:dev:initai` - initialize AI assistant boilerplate
+- `claude-developer-platform` - for building Claude API/SDK apps (available from marketplace, not currently enabled)
+- `defuddle` - extract clean markdown from web pages (installed as CLI via bun at `~/.bun/bin/defuddle`)
+
+### Authentication & Credentials
+
+| Service | Auth Method | Notes |
+|---------|-------------|-------|
+| **GitHub (gh/git)** | `GITHUB_TOKEN` env var (loaded from `~/.github_token`) + `gh auth` keyring | Git uses `gh auth git-credential` for HTTPS. In a container, `gh auth login --web` would work. |
+| **Claude Code** | Web-based `/login` | Works in any environment with a browser-accessible auth flow. |
+| **1Password** | Desktop app | `op` CLI not currently installed. Could be used for scoped secret injection into containers without putting secrets on the container's filesystem. This is a potential future enhancement, not a current requirement. |
+
+### Notable Observations for Container/VM Planning
+
+1. **OrbStack is already installed** - this is a lightweight Docker Desktop alternative for macOS. Relevant as a potential container runtime.
+2. **Dotfiles are version-controlled** and use rcm for symlink management - could be adapted for Linux and used in container provisioning.
+3. **Claude Code config is in the dotfiles repo** - the global CLAUDE.md and settings.json are tracked, making them easy to fork.
+4. **GitHub auth via token file + gh CLI** - straightforward to replicate in containers via `gh auth login --web`.
+5. **fnm (not nvm)** for Node version management - fnm is cross-platform and works on Linux.
+6. **The npm-wrappers pattern** enforces bun preference interactively - would work as-is in Linux.
+7. **MCP servers use `npx`** - they need Node.js available, which would be in the base template anyway.
