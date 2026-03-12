@@ -69,119 +69,45 @@ In addition to shell scripts, this container has the latest stable versions of N
 
 In addition to the standard CLI tools (git, grep, sed, find, cat etc) you have these available globally:
 
-**Data Processing**
+**Data processing:** `jq`, `yq`, `miller`, `xsv`, `sqlite3`, `sqlite-utils`
+- Prefer `miller` over awk/sed for structured data (CSV, TSV, JSON). Use `xsv` when performance matters on large CSVs.
+- `sqlite-utils` converts flat files (CSV/JSON) into SQLite databases — higher-level than raw `sqlite3`.
 
-| Tool | What it does | When to use |
-|------|-------------|-------------|
-| `jq` | Query and transform JSON | Parsing API responses, extracting fields from JSON files, reshaping data structures |
-| `yq` | Query and transform YAML (and JSON/XML/TOML) | Reading/editing config files, CI pipelines, Kubernetes manifests |
-| `miller` | Process structured text (CSV, TSV, JSON) with SQL-like operations | Aggregating, filtering or joining tabular data — like awk but structured-data-aware |
-| `xsv` | High-performance CSV toolkit (select, search, join, stats) | Working with large CSV files where `miller` feels slow, or when you need CSV-specific operations like indexing |
-| `sqlite3` | SQLite database engine CLI | Querying `.db`/`.sqlite` files, ad-hoc SQL analysis, creating temporary databases |
-| `sqlite-utils` | CLI for manipulating SQLite databases and converting data | Inserting CSV/JSON into SQLite, bulk transforms, creating databases from flat files — higher-level than raw `sqlite3` |
+**File search & viewing:** `ripgrep` (`rg`), `fd`, `bat`, `tree`
 
-**File Search, Viewing & Navigation**
+**Disk & code analysis:** `dust`, `ncdu`, `tokei`
+- `tokei` counts lines of code by language — useful for understanding project composition.
 
-| Tool | What it does | When to use |
-|------|-------------|-------------|
-| `ripgrep` (`rg`) | Fast recursive text search with regex | Searching file contents across a project — faster than grep and respects `.gitignore` |
-| `fd` | Fast file finder with intuitive syntax | Finding files by name/pattern — simpler and faster than `find` |
-| `bat` | `cat` with syntax highlighting and line numbers | Viewing file contents when you want syntax highlighting or need to share readable output |
-| `tree` | Display directory structure as a tree | Understanding project layout, documenting file hierarchies |
+**Media & images:** `ffmpeg`, `vips`
+- Prefer `vips` over ImageMagick — significantly faster for batch image operations.
 
-**Disk & Code Analysis**
+**Web content:** `defuddle`, `curl`
+- `defuddle` returns clean markdown from a web page. `curl` returns the raw response.
 
-| Tool | What it does | When to use |
-|------|-------------|-------------|
-| `dust` | Disk usage analyzer with visual output | Quick overview of what's consuming disk space — like `du` but readable |
-| `ncdu` | Interactive disk usage explorer | Drilling down into disk usage interactively when `dust` isn't enough |
-| `tokei` | Count lines of code by language | Getting a quick breakdown of a project's language composition and size |
+**Agent demo & automation:** `showboat`, `rodney`, `chartroom`
+- See [Using showboat, rodney & chartroom](#using-showboat-rodney--chartroom) below.
 
-**Media & Images**
-
-| Tool | What it does | When to use |
-|------|-------------|-------------|
-| `ffmpeg` | Audio/video processing Swiss army knife | Converting formats, extracting audio, trimming clips, generating thumbnails |
-| `vips` | High-performance image processing | Resizing, converting, or transforming images — much faster than ImageMagick for batch operations |
-
-**Web Content**
-
-| Tool | What it does | When to use |
-|------|-------------|-------------|
-| `defuddle` | Extract article text from HTML pages as clean markdown | Fetching the readable content of a web page without clutter — use instead of `curl` when you want just the text |
-| `curl` | Transfer data to/from URLs | Fetching raw HTML, calling APIs, downloading files — use when you need the complete unprocessed response |
-
-**Agent Demo & Automation**
-
-| Tool | What it does | When to use |
-|------|-------------|-------------|
-| `showboat` | Build markdown demo documents with captured command outputs and screenshots | Creating demos, walkthroughs, or documentation that shows real command output |
-| `rodney` | Headless browser automation via Chrome DevTools | Automating browser interactions — opening pages, clicking elements, running JS, taking screenshots |
-| `chartroom` | Generate charts from tabular data (CSV, JSON, SQLite) | Creating bar/line/scatter/pie charts from data for reports or documentation |
-
-**GitHub & Auth**
-
-| Tool | What it does | When to use |
-|------|-------------|-------------|
-| `gh` | GitHub CLI — PRs, issues, releases, API access | All GitHub operations — see [Using gh and git](#using-gh-and-git) below |
-| `claude` | Claude Code CLI | Spawning sub-agents, running Claude in headless mode |
-
-**General**
-
-| Tool | What it does | When to use |
-|------|-------------|-------------|
-| `unzip` | Extract ZIP archives | Unpacking downloaded archives |
+**Other:** `unzip`, `gh`, `claude`
 
 ### Using gh and git
 
-Use `git` for local repository operations (commits, branches, diffs, log) and `gh` for anything that touches GitHub (PRs, issues, releases, API calls).
+Use `git` for local operations, `gh` for anything that touches GitHub. Auth is pre-configured — no manual token setup needed.
 
-Auth is pre-configured — `gh` is authenticated and `git` pushes/pulls via `gh`'s credentials. No manual token setup needed.
-
-**Common `gh` patterns:**
-
-- `gh pr create`, `gh pr view`, `gh pr merge` — PR lifecycle
-- `gh pr checkout <number>` — check out a PR locally for review or testing
-- `gh issue list`, `gh issue create`, `gh issue view` — issue management
-- `gh api <endpoint>` — call any GitHub API endpoint directly (e.g. `gh api repos/owner/repo/commits`)
-- `gh repo clone <owner/repo>` — clone a repo with auth already configured
-- `gh run list`, `gh run view` — check CI/Actions status
-
-**Important:** Read operations (`gh pr view`, `gh api GET ...`) are low-risk. Write operations (`gh pr create`, `gh issue close`, `gh api -X POST ...`) affect shared state — confirm with the user before executing unless you've been explicitly told to proceed.
+Write operations (`gh pr create`, `gh issue close`, `gh api -X POST ...`) affect shared state — confirm with the user before executing unless explicitly told to proceed.
 
 ### Using playwright-cli
 
-Playwright provides browser automation for testing and scraping. It can launch headless Chromium, Firefox, or WebKit browsers to interact with web pages programmatically. For detailed usage and workflows, use the `/playwright-cli` skill which provides comprehensive guidance.
+Use the `/playwright-cli` skill for browser automation (testing, scraping, screenshots).
 
 ### Using showboat, rodney & chartroom
 
-These three tools ([showboat](https://github.com/simonw/showboat), [rodney](https://github.com/simonw/rodney), [chartroom](https://github.com/simonw/chartroom)) are specifically designed for AI agent use. They're built to be learned via `--help` — run `<tool> --help` to get full usage documentation before first use.
+[showboat](https://github.com/simonw/showboat), [rodney](https://github.com/simonw/rodney) and [chartroom](https://github.com/simonw/chartroom) are designed for AI agent use. Run `<tool> --help` for full usage of each.
 
-**Showboat** builds markdown demo documents by capturing real command outputs and screenshots. Use it when creating walkthroughs, project demos, or documentation that should show actual terminal output. Typical workflow:
+- **showboat** — captures real command outputs and screenshots into a markdown demo document. Use when creating walkthroughs or documentation that needs to show actual terminal output.
+- **rodney** — headless browser automation via Chrome DevTools Protocol. Use when you need to interact with web pages (clicking, forms, JS execution, screenshots).
+- **chartroom** — generates charts (bar, line, scatter, pie, histogram) from CSV, JSON, or SQLite data. Use when you need to visualize data for reports or documentation.
 
-1. `showboat init demo.md "My Demo"` — create a new demo document
-2. `showboat note demo.md "Description of what we're about to do"` — add narrative text
-3. `showboat exec demo.md bash 'curl ...'` — run a command and embed its output
-4. `showboat image demo.md 'screenshot command'` — embed an image
-5. `showboat verify demo.md` — re-run the document to verify outputs are still correct
-
-**Rodney** provides headless browser automation via Chrome DevTools Protocol. Use it when you need to interact with web pages — clicking buttons, filling forms, running JavaScript, or taking screenshots. Typical workflow:
-
-1. `rodney start` — launch a headless Chrome instance
-2. `rodney open <url>` — navigate to a page
-3. `rodney js 'document.title'` — run JavaScript and get results
-4. `rodney click 'button.submit'` — click elements by CSS selector
-5. `rodney screenshot page.png` — capture the current page
-6. `rodney stop` — close the browser
-
-Rodney pairs well with Showboat — use Rodney to automate browser interactions and Showboat to capture the results into a demo document.
-
-**Chartroom** generates charts from data. Use it when you need to visualize CSV, JSON, or SQLite data as bar, line, scatter, pie, or histogram charts. It auto-detects column roles and generates alt text for accessibility.
-
-- `chartroom bar data.csv` — create a bar chart from CSV data
-- `chartroom line data.json -x date -y value` — line chart with explicit column mapping
-- `chartroom bar --sql mydb.sqlite "SELECT name, count FROM items"` — chart directly from a SQLite query
-- Output defaults to `chart.png`; use `-f markdown` or `-f html` for embeddable output
+These tools work well together: use Rodney to automate browser interactions, Chartroom to generate charts, and Showboat to capture everything into a polished demo document.
 
 ### Fetching from the web
 
@@ -191,21 +117,9 @@ Rodney pairs well with Showboat — use Rodney to automate browser interactions 
 
 ## Core Skills & MCPs
 
-### Skills
+**Skills:** `/defuddle`, `/frontend-design`, `/css-expert`, `/playwright-cli`
 
-| Skill | What it does | When to use |
-|-------|-------------|-------------|
-| `/defuddle` | Extract clean markdown from web pages using the Defuddle CLI | When you need to read the content of a URL — cleaner and more token-efficient than `WebFetch` for full-page reads |
-| `/frontend-design` | Generate distinctive, production-grade frontend UI with high design quality | When building web components, pages, or applications — produces polished, non-generic code |
-| `/css-expert` | Expert guidance on modern CSS (cascade layers, OKLCH, container queries, defensive patterns) | CSS implementation, styling, layout, responsive design, and UI component work |
-| `/playwright-cli` | Browser automation for testing and scraping via Playwright | When you need to test web UIs, take screenshots of running apps, or scrape dynamic pages |
-
-### MCPs
-
-| MCP Tool | What it does | When to use |
-|----------|-------------|-------------|
-| `mcp__context7__resolve-library-id` | Resolve a library name to its Context7 ID | First step before querying docs — pass a library name (e.g. "react", "fastapi") to get the ID |
-| `mcp__context7__query-docs` | Query up-to-date documentation for a library | Look up API references, usage patterns, or examples for any framework/library — **always check here before web search** |
+**MCPs:** Context7 (`mcp__context7__resolve-library-id` → `mcp__context7__query-docs`). **Always check Context7 before web search** for framework/library docs.
 
 # Working in Projects
 
