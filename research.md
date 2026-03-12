@@ -264,6 +264,67 @@ Each container runs in its **own lightweight VM** (not namespace isolation like 
 
 ---
 
+## Approach F: Docker Sandboxes (Evaluated March 2026)
+
+Docker's first-party solution (Docker Desktop 4.58+, Jan 2026) uses **microVMs, not containers**. Each sandbox gets its own lightweight VM with its own kernel and private Docker daemon. Designed specifically for AI coding agents.
+
+### How It Works
+- `docker sandbox run claude ~/my-project` creates a microVM, syncs files, starts Claude Code with `--dangerously-skip-permissions`
+- Files sync bidirectionally via **copying** (not volume mounts), preserving absolute paths
+- Outbound internet through an HTTPS filtering proxy that auto-injects credentials (API keys never enter the sandbox)
+- Network allow/deny policies available
+- Custom templates via Dockerfile extending `docker/sandbox-templates:claude-code`
+- Sandboxes persist until explicitly `docker sandbox rm`'d
+
+### Strengths
+- **Strongest isolation**: Hypervisor-level, private Docker daemon, private kernel
+- **Docker-in-Docker works**: Each sandbox has its own Docker daemon
+- **Credential injection via proxy**: API keys stay on host, never stored in sandbox
+- **Disposable**: Delete and recreate in seconds
+- **`--dangerously-skip-permissions` by default**: The sandbox IS the safety boundary
+- **`docker sandbox save`**: Snapshot running sandboxes as reusable templates
+
+### Why It Was Ruled Out (as of March 2026)
+
+**Dealbreaker: No port forwarding.** Services running inside sandboxes cannot be accessed from the host browser. Docker's blog post (Jan 2026) lists "port exposure to host device" under "What's Next" (not yet implemented). Release notes through 4.64.0 (March 2026) show no change. Rules out any web development workflow.
+
+**4GB RAM hard cap.** Not configurable, no swap, no workaround. OOM kills reported under heavy workloads (webpack, Rust compilation, Java). Community issue #121 has significant concern.
+
+**File sync corrupts `.git/index`.** Bidirectional sync of binary files causes git to segfault on the host (issue #62). No `.sandboxignore` or exclude mechanism exists (issue #163).
+
+**Claude config wiped on start.** `CLAUDE.md`, `settings.json`, `claude.json` placed in `/home/agent/.claude/` via Dockerfile are blown away when the container starts (issue #167). Cannot pre-configure Claude Code.
+
+**Requires Docker Desktop.** Not compatible with OrbStack. Would need to switch from the already-installed OrbStack.
+
+**No shared images/layers between sandboxes.** Each microVM has its own isolated storage. Disk and memory grow linearly per sandbox.
+
+### Worth Revisiting When
+- Port forwarding ships
+- RAM becomes configurable
+- File sync gets exclude patterns and `.git` corruption is fixed
+- Claude config persistence is fixed
+
+### Sources
+- [Docker Sandboxes docs](https://docs.docker.com/ai/sandboxes/)
+- [Docker Sandboxes architecture](https://docs.docker.com/ai/sandboxes/architecture/)
+- [Docker blog: Run Claude Code Safely](https://www.docker.com/blog/docker-sandboxes-run-claude-code-and-other-coding-agents-unsupervised-but-safely/)
+- [Docker Desktop release notes](https://docs.docker.com/desktop/release-notes/)
+
+---
+
+## Other Tools & Approaches Evaluated (March 2026)
+
+### Trail of Bits `devc` CLI
+Purpose-built for per-project Claude Code sandboxing. Ubuntu 24.04 base, Node 22, Python 3.13, uv, persistent named volumes for `~/.claude` and `~/.config/gh`. Simple workflow: `devc .` / `devc shell` / `devc rebuild` / `devc destroy`. Worth referencing as a pattern even if rolling our own. [GitHub](https://github.com/trailofbits/claude-code-devcontainer)
+
+### Anthropic `devcontainer-features`
+A Dev Container Feature for installing Claude Code into any devcontainer: `"ghcr.io/anthropics/devcontainer-features/claude-code:1": {}`. Can be combined with any base image. [GitHub](https://github.com/anthropics/devcontainer-features)
+
+### Pere Villega's Incus + OrbStack approach
+Uses Incus system containers (full OS instances with systemd) running inside an OrbStack VM, with btrfs CoW snapshots for instant environment cloning. Strong isolation model but **no file syncing to host** by design - all interaction through git. Interesting ideas: ssh-agent forwarding (keys never on disk), Squid-based network egress filtering, pre-built language stack "golden images". Not suitable for our use case (need local file access). [Blog post](https://perevillega.com/posts/2026-03-03-ai-sandbox-coding-agents/)
+
+---
+
 ## Cross-Cutting Concerns
 
 ### Image Paste / Clipboard Sharing with Claude Code
@@ -368,29 +429,36 @@ For any approach, the global config (dotfiles, Claude Code settings, global tool
 
 ## Recommendation
 
-### Short version
+### Short version (updated March 2026)
 
-**Start with OrbStack Linux Machines (Approach A)**, supplemented by Claude Code hooks for write-gating. It's already installed, it's the most resource-efficient, has the best DX, and meets nearly all requirements with minimal setup.
+**Per-project Docker containers via OrbStack**, with a shared custom base image containing all dev tools. Project directories bind-mounted from the host so files are editable locally in Cursor/Finder/terminal. Claude Code runs inside each container with `--dangerously-skip-permissions` (the container IS the safety boundary). Containers are disposable but persistent across sessions via stop/start.
 
-### Reasoning
+### Why this approach
 
-1. **It's already there.** OrbStack is installed. You can create a machine right now with `orb create ubuntu my-project` and be working in 60 seconds.
+1. **Disposable per-project containers.** Each project gets its own container. If Claude does something destructive, destroy it and recreate from the base image + project repo. No impact on other projects.
 
-2. **Resource efficiency matters.** With 3-6+ concurrent environments, OrbStack's shared-kernel architecture is significantly lighter than per-VM approaches. This is a practical concern on a laptop.
+2. **Shared base image.** A single Dockerfile defines all global tooling (runtimes, CLIs, Claude Code config, shell setup). All project containers share this base. Disk layers are shared via overlay2. Read-only files (binaries, libraries) share page cache in RAM.
 
-3. **Best DX.** Automatic networking (no port forwarding config), file sharing in both directions, Finder access, SSH agent forwarding, clipboard, fast startup. The least friction of any option.
+3. **Local file access.** Project directories are bind-mounted from `~/dev/my-project` into the container. Edit in Cursor, commit in Cursor's git UI, browse in Finder - all locally. Claude Code inside the container reads/writes the same files.
 
-4. **"Feels like a machine"**. Unlike devcontainers (which feel like containers), OrbStack machines feel like full Linux machines. You have systemd, can install global packages, run multiple services, configure the shell however you want. This aligns better with your requirement that "the shell should feel the same."
+4. **OrbStack is already installed** and provides the best bind mount performance on macOS (75-95% native via VirtioFS). Automatic port forwarding, lightweight, excellent DX.
 
-5. **Write-gating via hooks.** Claude Code's `PreToolUse` hooks are the right mechanism regardless of environment choice. A hook script that gates `git push`, `gh api POST`, `curl -X POST`, etc. works identically in an OrbStack machine as in a devcontainer.
+5. **`--dangerously-skip-permissions`** is safe because the container boundary prevents host filesystem access and credential leakage. Write-gating for external services (git push, gh api POST) handled via Claude Code hooks inside the container.
 
-6. **The devcontainer approach isn't wasted knowledge.** If you later want stronger per-project isolation or want to use `--dangerously-skip-permissions`, you can run Docker inside OrbStack machines and use devcontainers there (Approach D). The two approaches compose.
+6. **RAM overhead is manageable.** Per-container process memory is ~100-300MB (Claude Code). For 5 containers that's ~500-1.5GB unique memory. Base image files benefit from page cache sharing.
 
-### What you'd give up vs Approach B (Devcontainers)
+### Persistence model
 
-- No `--dangerously-skip-permissions` safety net (but you don't need it if you're using hooks)
-- No network-level firewall (but your threat model is about writes, not reads)
-- Not Anthropic-endorsed (but Anthropic endorses devcontainers for their specific use case of unattended `--dangerously-skip-permissions`, which isn't your primary use case)
+- **Daily use**: `docker stop` / `docker start` - preserves everything (installed tools, `/tmp`, working state)
+- **Rebuild-safe**: Named volumes for `~/.claude`, `~/.config/gh`, shell history survive container rebuilds
+- **Project source**: Bind-mounted from host - always safe, never inside the container
+- **Destroy & recreate**: Base image + project repo + setup scripts = full recreation
+
+### What this gives up
+
+- No Docker-in-Docker (projects that need Docker themselves would need a different approach - keep locally or use Docker Sandboxes when they mature)
+- Container shell won't feel identical to local Mac shell (but this matters less now - most shell work happens locally on the Mac, the container is primarily for Claude Code)
+- No hypervisor-level isolation (container isolation via Linux namespaces, not separate kernel). Acceptable since the threat model is "prevent accidental damage to host", not "defend against malicious code"
 
 ### The image paste problem
 
@@ -430,6 +498,15 @@ This adds a few seconds vs your current workflow. Alternatively, Claude Code's R
 - [Ghostty SSH image paste](https://github.com/ghostty-org/ghostty/discussions/10517)
 - [Claude Code image paste iTerm2 bug](https://github.com/anthropics/claude-code/issues/29365)
 
+### Docker Sandboxes & Community Tools (March 2026)
+- [Docker Sandboxes docs](https://docs.docker.com/ai/sandboxes/)
+- [Docker Sandboxes architecture](https://docs.docker.com/ai/sandboxes/architecture/)
+- [Docker blog: Run Claude Code Safely](https://www.docker.com/blog/docker-sandboxes-run-claude-code-and-other-coding-agents-unsupervised-but-safely/)
+- [Trail of Bits claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer)
+- [Anthropic devcontainer-features](https://github.com/anthropics/devcontainer-features)
+- [Pere Villega: AI Sandbox for Coding Agents](https://perevillega.com/posts/2026-03-03-ai-sandbox-coding-agents/)
+- [OrbStack filesystem performance](https://orbstack.dev/blog/fast-filesystem)
+
 ### Tools Evaluated but Not Recommended
 - **DevPod**: Was promising ("Codespaces but open-source") but [effectively unmaintained since mid-2025](https://github.com/loft-sh/devpod/issues/1915). Community fork exists but uncertain future.
 - **Coder**: Enterprise-focused, requires a server component. Overkill for single-user local use.
@@ -438,3 +515,4 @@ This adds a few seconds vs your current workflow. Alternatively, Claude Code's R
 - **Vagrant**: Declining. Apple Silicon support via VirtualBox is slow. Lima/OrbStack are better.
 - **Multipass**: Ubuntu-only VMs. Fine but less featured than Lima.
 - **Nix/devenv.sh/Devbox**: Excellent for reproducible dependencies but provide NO filesystem/process isolation. They modify your PATH, not your environment boundary. Could be used *inside* a container/VM for dependency management, but don't solve the ring-fencing problem on their own.
+- **Docker Sandboxes**: Excellent isolation model (microVMs) but not mature enough as of March 2026. No port forwarding (can't preview web apps), 4GB RAM hard cap, file sync corrupts `.git/index`, no sync excludes, Claude config wiped on start, requires Docker Desktop (not OrbStack). Worth revisiting when port forwarding and configurable resources ship.

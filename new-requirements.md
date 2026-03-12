@@ -37,10 +37,19 @@ In addition to the standard tools I would expect to have available on any contai
 - ffmpeg (if it'snot massive)
 - jq
 - sqlite
+- sqlite-utils
 - tree
 - ripgrep
 - unzip
 - ca-certificates
+- yq
+- miller
+- xsv
+- fd
+- bat
+- dust and ncdu
+- tokei
+- vips
 - [probably a few more generic CLI tools which make Claude Code better at various generic tasks and cannot be executed with `bunx` or `uvx` (or are run often enough they shouldn't be) etc]
 
 ## Global Tools Requiring User Auth
