@@ -96,7 +96,7 @@ Get a working Docker container that can run Claude Code against a bind-mounted p
 
 **Repo structure** (initial):
 ```
-dev-environment/
+denv/
 ├── Dockerfile
 ├── scripts/
 │   └── entrypoint.sh
@@ -151,16 +151,16 @@ Runtimes:
 CLI tools:
 - Already from Phase 1: git, gh, claude, curl, jq
 - Add: ripgrep, fd, bat, tree, unzip, ffmpeg, sqlite3, yq, miller, xsv, dust, ncdu, tokei, vips (libvips-tools)
-- Via bun/bunx: defuddle
+- Via bun/bunx: defuddle, @playwright/cli@latest
 - Via cargo: xsv, dust, tokei (if not available via apt — check availability)
 - Via pip/uv: sqlite-utils
 - Simon Willison's tools: showboat, rodney, chartroom (check install methods — likely pip/uv or bun)
-- Playwright: `npx playwright install --with-deps chromium`
-
+- Playwright - may need installing in addition to the playwright/cli along with Chromium?
+- 
 **Create dotfiles** (`dotfiles/` in repo):
-- `zshrc` — minimal but functional: prompt, basic aliases (`g`=git, `cat`=bat, etc.), PATH setup for all installed runtimes, fnm init, cargo env, bun paths
+- `zshrc` — minimal but functional: prompt, basic aliases (`g`=git, etc.), PATH setup for all installed runtimes, fnm init, cargo env, bun paths
 - `gitconfig` — sensible defaults (pull rebase, verbose commits, `gh auth git-credential` for HTTPS auth, colors)
-- `gitignore_global` — standard ignores (OS files, editor files, env files)
+- `gitignore_global` — standard ignores (OS files, editor files, env files, *.local and *.local.*)
 
 **Update entrypoint.sh** with version-stamp sync logic:
 - Bake dotfiles and config into `/opt/denv/home-template/` in the image
@@ -193,12 +193,6 @@ Configure Claude Code inside the container with the right global instructions, s
 
 **Claude config** (`claude/` in repo):
 - `CLAUDE.md` — global instructions for the container environment. Based on `GLOBAL_CLAUDE.md` but completed. Key contents:
-  - Rules carried over from user's Mac CLAUDE.md (no "you're absolutely right", no time estimates, bun preference, etc.)
-  - Explanation of the container environment (what it is, what's available)
-  - Docs for pre-installed runtimes and their package managers
-  - Docs for available CLI tools (gh, playwright, defuddle, showboat, rodney, chartroom, etc.)
-  - Docs for available Claude skills and MCPs
-  - Instructions for fetching from the web (WebFetch vs curl vs defuddle)
 - `settings.json` — initial permissive settings (will be refined in Phase 5). For now: broad allow list, minimal deny list.
 
 **Plugin/skill/MCP installation**:
@@ -247,11 +241,13 @@ Build the full `denv` CLI tool that manages the complete container lifecycle fro
 
 **Scaffold templates** (`scaffold/` in repo):
 - `README.md` — minimal project readme
-- `CLAUDE.md` — project-level Claude instructions template
+- `AGENTS.md` — Basic project instructions
+- `CLAUDE.md` - Just "@AGENTS.md"
 - `.gitignore` — sensible defaults
-- Possibly `.claude/settings.json` — project-level settings template
+- `docs/tasks-todo/.gitkep`
+- `docs/tasks-done/.gitkep`
 
-**Installation**: the script lives in the repo. User symlinks it to somewhere on PATH (e.g., `ln -s ~/dev/dev-environment/denv ~/.local/bin/denv`).
+**Installation**: the script lives in the repo. User symlinks it to somewhere on PATH (e.g., `ln -s ~/dev/denv/denv ~/.local/bin/denv`).
 
 ### Design Notes
 
@@ -341,13 +337,3 @@ Test with real projects of various types, fix issues, tune the setup based on ac
 - Document any gotchas or workarounds
 - Set up the image-sharing workaround (pngpaste + keyboard shortcut) if desired
 - Consider whether `denv` needs any additional commands based on real usage patterns
-
----
-
-## Deferred / Future Considerations
-
-- **Docker-in-Docker**: Projects that need Docker themselves (docker-compose stacks, building images) cannot run Docker inside a standard container. If this comes up, options include: keep those projects local on the Mac, use Docker socket mount (with understood risks), or use a different isolation approach (OrbStack Linux Machine) for those specific projects.
-- **Tauri projects**: Tauri dev servers launch native macOS apps. These cannot run inside Linux containers. Hybrid approach: Claude works on code in the container, Tauri dev server runs locally on the Mac against the same bind-mounted project directory.
-- **Apple Containers**: Apple's containerisation framework (macOS 26+) may eventually provide a native alternative. Worth revisiting when it reaches 1.0.
-- **Docker Sandboxes**: Docker's microVM-based sandboxes have excellent isolation but are not mature enough (no port forwarding, 4GB RAM cap, git corruption). Worth revisiting when these limitations are addressed.
-- **Shared auth volumes**: Currently each container requires separate `gh login` and `claude login`. If this becomes tedious with many containers, auth volumes could be shared across projects.
