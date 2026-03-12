@@ -69,12 +69,13 @@ The home volume captures everything: Claude auth, gh auth, shell history, global
 
 ### Networking
 
-OrbStack automatically forwards ports from Docker containers to `localhost` on the Mac. When Claude starts a dev server on port 3000 inside the container, it is accessible at `localhost:3000` in the Mac browser. No explicit port mapping needed.
+OrbStack gives each container a `<container-name>.orb.local` domain where all ports are accessible without any `-p` flags (e.g., `denv-my-project.orb.local:3000`). For `localhost` access, explicit `-p` mapping may still be needed — verify in Phase 1. The `.orb.local` approach is preferable anyway since it avoids port conflicts when multiple containers run dev servers on the same port number.
 
 ### Container Naming
 
 - Container: `denv-<project-name>` (where project-name is the directory name from the path given to `denv create`)
 - Volume: `denv-<project-name>-home`
+- Docker labels on the container store metadata (original project path, creation date) so `denv rebuild` can recreate with the correct bind mount without external state files
 
 ### Dependency Directories (node_modules, etc.)
 
@@ -107,9 +108,9 @@ denv/
 - `FROM ubuntu:24.04`
 - Install: `git`, `curl`, `zsh`, `sudo`, `ca-certificates`, `jq`, basic build tools
 - Install Node.js (via fnm or direct) + Bun
-- Install Claude Code (`curl -fsSL https://claude.ai/install.sh | bash`)
+- Install Claude Code (`WORKDIR /tmp` first, then `curl -fsSL https://claude.ai/install.sh | bash` — installing from `/` hangs because the installer scans the filesystem)
 - Install GitHub CLI (`gh`)
-- Create non-root user `dev` with sudo access and zsh as default shell
+- Create non-root user `dev` with sudo access and zsh as default shell. Match UID to macOS default (501) to avoid bind mount permission issues — verify in testing.
 - Set `WORKDIR /workspace`
 
 **entrypoint.sh** — minimal:
@@ -244,8 +245,8 @@ Build the full `denv` CLI tool that manages the complete container lifecycle fro
 - `AGENTS.md` — Basic project instructions
 - `CLAUDE.md` - Just "@AGENTS.md"
 - `.gitignore` — sensible defaults
-- `docs/tasks-todo/.gitkep`
-- `docs/tasks-done/.gitkep`
+- `docs/tasks-todo/.gitkeep`
+- `docs/tasks-done/.gitkeep`
 
 **Installation**: the script lives in the repo. User symlinks it to somewhere on PATH (e.g., `ln -s ~/dev/denv/denv ~/.local/bin/denv`).
 
