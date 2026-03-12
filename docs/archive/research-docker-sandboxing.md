@@ -1,4 +1,6 @@
-# Research: Docker-Based Per-Project Sandboxing for AI Coding Agents
+# Docker-Based Sandboxing: Patterns, Performance & Persistence
+
+> **Context**: Focused research on Docker-specific patterns for AI coding agent sandboxing. Covers shared base image approaches (Docker Sandboxes, Anthropic devcontainer, Trail of Bits devc, etc.), bind mount performance benchmarks on macOS, Docker-in-Docker options, container persistence strategies, and RAM/disk sharing characteristics across multiple containers.
 
 ## 1. Shared Base Image + Per-Project Container Patterns
 

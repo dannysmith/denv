@@ -1,4 +1,6 @@
-# Ring-Fenced Development Environment: Research Findings
+# Consolidated Research Findings
+
+> **Context**: This is the main research document for the project. It evaluates all high-level approaches (OrbStack Linux Machines, Docker Devcontainers, Lima VMs, hybrid approaches, Apple Containers, Docker Sandboxes), compares them against the requirements, and concludes with a recommendation. It also covers cross-cutting concerns (image paste, permission gating, Playwright, Tauri, base templating). Other research docs in this directory are focused deep-dives on specific topics; this one ties everything together.
 
 > Research conducted March 2026. Sources include official documentation, GitHub repos, community discussions, and web articles.
 

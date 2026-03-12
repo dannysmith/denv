@@ -1,4 +1,6 @@
-# New Requirements after research
+# Revised Requirements (Post-Research)
+
+> **Context**: Written after the initial research phase, this document refines the original requirements based on what was learned. The key shift: project files should be bind-mounted to the local Mac filesystem (not kept exclusively inside the container), with the container primarily serving as Claude Code's workspace. This simplification collapsed many DX concerns from the initial requirements. This document also specifies the concrete tool list for the base container image.
 
 If we temporarily work on the assumption that that we are going to have container or VM of some sort running locally for development, I can imagine something like this:
 

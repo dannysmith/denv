@@ -1,5 +1,7 @@
 # Initial Requirements
 
+> **Context**: This was the first document created for this project (March 2026). It captures the original problem statement, the desired outcome, and a detailed Q&A conversation that refined the requirements. The refined requirements summary and detailed discussion notes were produced through an extended conversation exploring edge cases, trade-offs, and constraints. This document was the starting point for all subsequent research.
+
 ## Current Situation
 
 I currently keep my dev projects in `~/dev/` - each as a directory containing a git repo which is also on GitHub. I also occasionally work in `~/scratchpad/` when exploring new ideas and topics, and move any projects which I wanna keep to `~/dev/` (and push them to GH).

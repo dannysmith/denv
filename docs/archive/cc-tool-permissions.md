@@ -1,4 +1,6 @@
-# Claude Code Tool Permissions
+# Claude Code Tool Permissions (Current Mac Setup)
+
+> **Context**: Documents Danny's current global Claude Code permission settings (`~/.claude/settings.json`) as of March 2026, and lists commands that should be auto-allowed inside the ring-fenced container but are currently gated on the Mac. This serves as a reference for designing the container's permission model (see PLAN.md Phase 5).
 
 My current Global Claude settings have these permissions:
 

@@ -1,4 +1,6 @@
-# Running Claude Code in Sandboxed / Ring-Fenced Environments
+# Claude Code Sandboxing: Permission Model, Hooks & Security
+
+> **Context**: Focused research on Claude Code's own security mechanisms — the permission system, hooks, native sandbox, devcontainer support, and auth flows. This is the reference for understanding what Claude Code provides natively and how to configure it inside a container.
 
 ## Research Findings (as of early 2026)
 
