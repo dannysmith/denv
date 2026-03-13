@@ -94,6 +94,21 @@ RUN go install github.com/mikefarah/yq/v4@latest
 RUN uv tool install showboat \
     && uv tool install chartroom
 
+# Install Playwright CLI + Chromium
+# Browsers go to /opt so they're accessible to the dev user (not trapped in /root)
+# Use the playwright version bundled with @playwright/cli to avoid revision mismatch
+USER root
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
+ENV PLAYWRIGHT_MCP_BROWSER=chromium
+RUN bun install -g @playwright/cli \
+    && PW_VERSION=$(node -e "console.log(require('/opt/bun/install/global/node_modules/playwright/package.json').version)") \
+    && npx playwright@$PW_VERSION install --with-deps chromium \
+    && chmod -R o+rx /opt/playwright-browsers
+
+# Install rodney (headless Chrome automation CLI, needs Chrome from Playwright)
+USER dev
+RUN go install github.com/simonw/rodney@latest
+
 # Copy entrypoint
 USER root
 COPY scripts/entrypoint.sh /opt/denv/entrypoint.sh
