@@ -2,25 +2,35 @@
 
 # This Dev Container
 
-[Background on this container]
+You are running inside a **denv devcontainer** — an isolated Docker container (via OrbStack on macOS). The user works on project files locally on their Mac using Cursor, Finder, and the terminal. This container is your workspace — pre-configured with all the runtimes, CLI tools, and config you need.
 
 ## Filesystem
 
-```tree
-
+```
+/workspace/                     ← bind-mounted project directory (synced with Mac)
+/home/dev/                      ← your home dir (baked into image, not persisted across rebuilds)
+  ├── .claude/                  ← Claude Code config + auth
+  ├── .config/gh/               ← GitHub CLI auth
+  ├── .cargo/                   ← Rust toolchain
+  ├── .local/                   ← uv-managed Python, user binaries
+  ├── go/                       ← GOPATH (go install targets)
+  ├── .zshrc, .gitconfig, etc.  ← shell config
+/opt/denv/                      ← entrypoint, hooks, denv scripts
 ```
 
-### Sync with Local FS
+**`/workspace/`** is a bind mount of a project directory on the Mac. Any changes you make here are immediately visible on the Mac and vice versa. This is where all project work happens.
 
-### Temporary Files
+**`/home/dev/`** is the container's writable layer, baked into the image. All runtimes install to their standard default locations (`~/.cargo`, `~/.local`, `~/go`, etc.). This directory is preserved across `denv stop`/`denv start` but is **reset on `denv rebuild`** (which recreates the container from a new image). Auth state, shell history, and any tools you install during a session will be lost on rebuild.
+
+**`/opt/denv/`** contains the entrypoint and denv management scripts. Do not modify.
 
 ## Languages & Runtimes
 
-In addition to shell scripts, this container has the latest stable versions of Node/TypeScript, Python and Rust available globally. Each has a preferred package runner for executing one-off tools without permanent installation.
+This container has the latest stable versions of Node/TypeScript, Python, Rust, and Go available globally. Each has a preferred package runner for executing one-off tools without permanent installation.
 
 ### JavaScript / TypeScript / Node
 
-- **Runtime:** `bun` (preferred) and `node`
+- **Runtime:** `bun` (preferred) and `node` (LTS, managed by fnm)
 - **Package manager:** `bun` — use instead of `npm`/`pnpm` unless the project specifies otherwise
 - **One-off execution:** `bunx <package>` to run an npm package without installing it
 - **TypeScript:** Runs natively via `bun` — no separate `tsc` compilation step needed for scripts
@@ -29,7 +39,7 @@ In addition to shell scripts, this container has the latest stable versions of N
 ### Python
 
 - **Package/project manager:** `uv` — handles virtual environments, dependency resolution and project scaffolding
-- **One-off execution:** `uvx <package>` to run a Python CLI tool without installing it (many tools on this container are installed this way)
+- **One-off execution:** `uvx <package>` to run a Python CLI tool without installing it
 - **Python versions:** Managed via `uv python install <version>` and `uv python pin <version>` — no need for pyenv
 - **Global installs:** `uv tool install <package>` for tools that should be permanently available outside a project
 - **In-project usage:** `uv init`, `uv add <dep>`, `uv run <script>` — replaces pip, pip-tools and virtualenv
@@ -43,65 +53,122 @@ In addition to shell scripts, this container has the latest stable versions of N
 
 ### Go
 
+- **Runtime:** Go is installed at `/usr/local/go`
+- **GOPATH:** `~/go` — `go install` targets end up in `~/go/bin`
+- **Installing tools:** `go install <module>@latest` — many developer CLI tools are written in Go
+- Go is primarily available for installing tools from source (yq, rodney, etc.) or working on Go projects. For most scripting and automation tasks, prefer JS/TS or Python.
+
 ## Installing & Running Tools
+
+| Goal | Method |
+|---|---|
+| Install system packages | `sudo apt-get update && sudo apt-get install <package>` |
+| Install global JS tools | `bun install -g <package>` |
+| Install global Python tools | `uv tool install <package>` |
+| Install global Rust tools | `cargo install <crate>` |
+| Install global Go tools | `go install <module>@latest` |
+| Run a JS tool once (no install) | `bunx <package>` |
+| Run a Python tool once (no install) | `uvx <package>` |
+
+You have full `sudo` access. Tools installed via `apt`, `bun -g`, `uv tool`, `cargo install`, or `go install` persist across `denv stop`/`start` but are lost on `denv rebuild`.
 
 ## Working with Files
 
+- `rg` (ripgrep) — fast recursive search. Prefer over `grep`.
+- `fd` — fast file finder. Prefer over `find`.
+- `bat` — cat with syntax highlighting. Aliased to `cat` in this container.
+- `tree` — directory tree viewer
+- `jq` — JSON processing
+- `yq` — YAML/JSON/XML processing (the Go version by Mike Farah, not the Python one)
+- `miller` (`mlr`) — structured data processing (CSV, TSV, JSON). Prefer over awk/sed for structured data.
+- `sqlite3` — SQLite CLI
+- `unzip` — archive extraction
+- `ncdu` — interactive disk usage analysis
+- `vips` (libvips) — image processing CLI. Prefer over ImageMagick.
+
 ## Core CLI Tools
 
-In addition to the standard CLI tools (git, grep, sed, find, cat etc) you have these available globally:
+All pre-installed CLI tools beyond the standard set (git, grep, sed, find, etc.):
 
-**Data processing:** `jq`, `yq`, `miller`, `xsv`, `sqlite3`, `sqlite-utils`
-- Prefer `miller` over awk/sed for structured data (CSV, TSV, JSON). Use `xsv` when performance matters on large CSVs.
-- `sqlite-utils` converts flat files (CSV/JSON) into SQLite databases — higher-level than raw `sqlite3`.
-
-**File search & viewing:** `ripgrep` (`rg`), `fd`, `bat`, `tree`
-
-**Disk & code analysis:** `dust`, `ncdu`, `tokei`
-- `tokei` counts lines of code by language — useful for understanding project composition.
-
-**Media & images:** `ffmpeg`, `vips`
-- Prefer `vips` over ImageMagick — significantly faster for batch image operations.
-
-**Web content:** `defuddle`, `curl`
-- `defuddle` returns clean markdown from a web page. `curl` returns the raw response.
-
-**Agent demo & automation:** `showboat`, `rodney`, `chartroom`
-- See [Using showboat, rodney & chartroom](#demo--visualization-tools) below.
-
-**Other:** `unzip`, `gh`, `claude`
+| Tool | Command | Installed via | Description |
+|---|---|---|---|
+| ripgrep | `rg` | apt | Fast recursive search (prefer over `grep`) |
+| fd | `fd` | apt | Fast file finder (prefer over `find`) |
+| bat | `bat` | apt | Cat with syntax highlighting (aliased to `cat`) |
+| tree | `tree` | apt | Directory tree viewer |
+| jq | `jq` | apt | JSON processor |
+| yq | `yq` | go install | YAML/JSON/XML processor (Mike Farah's Go version) |
+| miller | `mlr` | apt | Structured data processor (CSV, TSV, JSON) |
+| SQLite | `sqlite3` | apt | SQLite CLI |
+| ncdu | `ncdu` | apt | Interactive disk usage analyzer |
+| libvips | `vips` | apt | Image processing (prefer over ImageMagick) |
+| showboat | `showboat` | uv tool | Captures outputs into markdown demo docs |
+| chartroom | `chartroom` | uv tool | Generates charts from CSV/JSON/SQLite data |
+| rodney | `rodney` | go install | Headless Chrome automation CLI |
+| GitHub CLI | `gh` | apt | GitHub operations |
+| Claude Code | `claude` | curl installer | AI coding assistant |
+| curl | `curl` | apt | HTTP client |
+| wget | `wget` | apt | HTTP client |
+| unzip | `unzip` | apt | Archive extraction |
 
 ## Using gh and git
 
-Use `git` for local operations, `gh` for anything that touches GitHub. Auth is pre-configured — no manual token setup needed.
+Use `git` for local operations, `gh` for anything that touches GitHub. Auth is pre-configured via `gh auth git-credential` — no manual token setup needed.
 
-Write operations (`gh pr create`, `gh issue close`, `gh api -X POST ...`) affect shared state — confirm with the user before executing unless explicitly told to proceed.
+Write operations affect shared state — confirm with the user before executing unless explicitly told to proceed:
+- `gh pr create`, `gh pr merge`, `gh pr close`
+- `gh issue create`, `gh issue close`
+- `gh api -X POST|PUT|DELETE|PATCH ...`
+- `git push`, `git push --force-with-lease`
+
+Common read patterns that are always safe:
+- `gh repo view`, `gh pr list`, `gh pr view`, `gh issue list`, `gh issue view`
+- `gh api /repos/...` (GET requests)
+- `gh pr diff`, `gh pr checks`
 
 ## Browser Automation (Playwright & Rodney)
 
-Use the `/playwright-cli` skill for browser automation (testing, scraping, screenshots).
+This container has Chromium pre-installed and configured for headless-only operation (no display server). Two tools are available:
 
-[showboat](https://github.com/simonw/showboat), [rodney](https://github.com/simonw/rodney) and [chartroom](https://github.com/simonw/chartroom) are designed for AI agent use. Run `<tool> --help` for full usage of each.
+**Playwright** (via the `/playwright-cli` skill) — full browser automation framework. Use for:
+- Multi-step flows (click, fill, navigate, wait)
+- Testing (assertions, network interception)
+- Waiting for specific selectors or network responses
+- Complex scraping with JS rendering
 
-- **rodney** — headless browser automation via Chrome DevTools Protocol. Use when you need to interact with web pages (clicking, forms, JS execution, screenshots).
+`PLAYWRIGHT_BROWSERS_PATH` and `PLAYWRIGHT_MCP_BROWSER=chromium` are pre-configured. Invoke via the `/playwright-cli` skill.
+
+**Rodney** — simpler headless Chrome CLI for quick tasks. Use for:
+- Quick screenshots of a page
+- Simple page visits
+- Running a JS snippet against a page
+- One-off scraping where Playwright is overkill
+
+Run `rodney --help` for full usage.
 
 ## Demo & Visualization Tools
 
-- **showboat** — captures real command outputs and screenshots into a markdown demo document. Use when creating walkthroughs or documentation that needs to show actual terminal output.
-- **chartroom** — generates charts (bar, line, scatter, pie, histogram) from CSV, JSON, or SQLite data. Use when you need to visualize data for reports or documentation.
+**showboat** — captures real command outputs and screenshots into a markdown demo document. Use when creating walkthroughs or documentation that needs to show actual terminal output. Run `showboat --help` for full usage.
+
+**chartroom** — generates charts (bar, line, scatter, pie, histogram) from CSV, JSON, or SQLite data. Use when you need to visualize data for reports or documentation. Run `chartroom --help` for full usage.
 
 These tools work well together: use Rodney to automate browser interactions, Chartroom to generate charts, and Showboat to capture everything into a polished demo document.
 
 ## Web Content
 
-- `WebFetch` is great for fetching a summary of a web page. Use it when doing broad research, or deciding whether it's worth fetching the complete content of a page.
-- When fetching a complete page, always use `curl` or `defuddle`. `curl` will return the raw document, [defuddle](https://github.com/kepano/defuddle) will return the text content of an HTML page as well-formatted markdown.
+- **`WebFetch`** — fetches a summary of a web page. Use for broad research or deciding whether to fetch full content.
+- **`curl`** — raw HTTP responses. Use when you need the actual HTML/JSON/etc.
+- **`defuddle`** — not installed by default. If needed, install with `bun install -g defuddle-cli`. Extracts clean markdown from HTML pages.
 
 ## Skills & MCPs
 
-**Skills:** `/defuddle`, `/frontend-design`, `/css-expert`, `/playwright-cli`
+**Skills:**
+- `/css-expert` (css-expert@dannysmith) — modern CSS implementation, layout, colors, responsive design
+- `/frontend-design` (frontend-design@claude-plugins-official) — production-grade UI design and implementation
+- `/playwright-cli` (playwright-cli@playwright-cli) — browser automation via Playwright
 
-**MCPs:** Context7 (`mcp__context7__resolve-library-id` → `mcp__context7__query-docs`). **Always check Context7 before web search** for framework/library docs.
+**MCPs:**
+- **Context7** — library and framework documentation lookup. **Always check Context7 before web search** for framework/library docs. Use `mcp__context7__resolve-library-id` to find a library, then `mcp__context7__query-docs` to query its docs.
 
 # Working in Projects
 
