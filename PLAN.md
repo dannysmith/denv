@@ -257,17 +257,13 @@ Since there is no home volume, dotfiles are simply baked into the image via the 
 
 ---
 
-## Phase 3: Claude Code Customisation
+## Phase 3: Claude Code Customisation [✅ DONE]
 
-See [docs/CLAUDE_SETUP_PLAN.md](docs/CLAUDE_SETUP_PLAN.md) for the full plan.
+See [docs/archive/CLAUDE_SETUP_PLAN.md](docs/archive/CLAUDE_SETUP_PLAN.md) for the full plan.
 
-Configure Claude Code inside the container with global instructions (`claude/CLAUDE.md`), settings (`claude/settings.json`), MCP config, and a reusable plugin installation script. Also improve `denv create` to handle auth (GitHub + Claude) and plugin setup automatically.
+Configured Claude Code inside the container with global instructions (`claude/CLAUDE.md`), settings (`claude/settings.json`), MCP config (Context7), and a reusable plugin installation script (`scripts/install-claude-plugins.sh`). `denv create` now handles GitHub auth automatically; Claude auth and plugin install are manual steps after first shell-in.
 
-Four sub-phases:
-1. **CLAUDE.md** — complete global instructions for the container environment
-2. **Settings & Config** — settings.json, .claude.json (MCP config), Dockerfile updates
-3. **Plugin Installation Script** — reusable `install-claude-plugins.sh` that can update plugins in any container without rebuilding
-4. **Better `denv create`** — automated auth flow (gh + claude) and plugin setup on container creation
+**Deviation from plan:** `claude auth login` doesn't work via `docker exec` (no paste prompt for OAuth code). Users must run `claude` interactively and use `/login` instead.
 
 ---
 
