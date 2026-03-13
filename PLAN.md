@@ -33,38 +33,34 @@ All project containers share a single base Docker image (`denv-base`). The image
 
 ### Volume & Persistence Model
 
-Each container has exactly **two mounts**:
+Each container has exactly **one mount**:
 
 1. **Bind mount**: project directory from Mac → `/workspace` in container
-2. **Named volume**: `denv-<project>-home` → `/home/dev` (the user's entire home directory inside the container)
 
-The home volume captures everything: Claude auth, gh auth, shell history, globally-installed user-space tools (`~/.local/bin`, `~/.cargo/bin`, `~/.bun/bin`, etc.), and any scratch files Claude creates in `~/`.
+There is no home directory volume. `/home/dev` lives in the container's writable layer and is baked into the image with all tools, dotfiles, and config. This means all runtimes (Rust, Python, Go, etc.) install to their standard default locations (`~/.cargo`, `~/.local`, `~/go`, etc.) with no workarounds needed.
 
-**First-run behaviour**: When a named volume is first mounted to a path that has contents in the image, Docker populates the volume from the image. So the first `denv create` gets dotfiles, Claude config, etc. from the base image automatically.
-
-**After base image rebuild**: The volume already has data, so image updates to `/home/dev` are ignored. An entrypoint script handles this: it checks a version stamp in the volume against the image version and syncs template files (dotfiles, Claude config) while preserving user state (auth credentials, shell history, installed tools).
+**Trade-off**: `denv rebuild` (destroying and recreating a container from a new image) will lose auth state (Claude, gh), shell history, and any tools Claude installed during sessions. Re-auth takes ~30 seconds and is infrequent. This is a worthwhile trade for completely standard tool installation paths, which matters because Claude will frequently install tools at runtime.
 
 **Persistence by scenario**:
 
 | Scenario | Project files | Home dir (auth, tools, history) | System (apt packages, global bins) |
 |---|---|---|---|
-| `denv stop` / `denv start` | Safe (on Mac) | Preserved | Preserved |
-| `denv rebuild` (new base image) | Safe (on Mac) | Preserved (volume) | Reset to new image |
-| `denv rm` | Safe (on Mac) | Gone (unless `--keep-volumes`) | Gone |
+| `denv stop` / `denv start` | Safe (on Mac) | Preserved (container layer) | Preserved |
+| `denv rebuild` (new base image) | Safe (on Mac) | Reset to new image | Reset to new image |
+| `denv rm` | Safe (on Mac) | Gone | Gone |
 
 ### Filesystem Layout (inside container)
 
 ```
 /workspace/                     ← bind-mounted project directory
-/home/dev/                      ← named volume (persistent home)
+/home/dev/                      ← container layer (from image, standard paths)
   ├── .claude/                  ← Claude Code config + auth
   ├── .config/gh/               ← GitHub CLI auth
+  ├── .cargo/                   ← Rust toolchain
+  ├── .local/                   ← uv-managed Python, user binaries
+  ├── go/                       ← GOPATH (go install targets)
   ├── .zshrc, .gitconfig, etc.  ← shell config
-  ├── .local/bin/               ← user-installed binaries
-  └── .denv-version             ← version stamp for entrypoint sync
-/opt/denv/                      ← image-baked templates (source of truth for syncing)
-  ├── home-template/            ← dotfiles, Claude config
-  └── hooks/                    ← write-gating hooks
+/opt/denv/                      ← entrypoint, hooks
 ```
 
 ### Networking
@@ -74,7 +70,6 @@ OrbStack gives each container a `<container-name>.orb.local` domain where all po
 ### Container Naming
 
 - Container: `denv-<project-name>` (where project-name is the directory name from the path given to `denv create`)
-- Volume: `denv-<project-name>-home`
 - Docker labels on the container store metadata (original project path, creation date) so `denv rebuild` can recreate with the correct bind mount without external state files
 
 ### Dependency Directories (node_modules, etc.)
@@ -123,7 +118,7 @@ denv/
 
 1. Build the image: `docker build -t denv-base .`
 2. Create a test project: `mkdir ~/dev/test-project && cd ~/dev/test-project && git init && echo "# Test" > README.md`
-3. Run container manually: `docker run -it --name denv-test-project -v ~/dev/test-project:/workspace -v denv-test-project-home:/home/dev denv-base`
+3. Run container manually: `docker run -it --name denv-test-project -v ~/dev/test-project:/workspace denv-base`
 4. Inside container: run `claude --version`, `gh --version`, `git status`
 5. Inside container: run `gh auth login` and `claude /login`, verify auth works
 6. Inside container: start a Claude session, ask it to create a file
@@ -236,14 +231,13 @@ ZSH_THEME_GIT_PROMPT_DIRTY="%{$fg[blue]%}) %{$fg[yellow]%}%1{✗%}"
 ZSH_THEME_GIT_PROMPT_CLEAN="%{$fg[blue]%})"
 ```
 
-### Phase 2h: Entrypoint & home-template sync
+### Phase 2h: Entrypoint & dotfiles in image
 
-**Update entrypoint.sh** with version-stamp sync logic:
-- Bake dotfiles and config into `/opt/denv/home-template/` in the image
-- On container start, compare `/home/dev/.denv-version` with image version
-- If missing or outdated: copy template dotfiles into `/home/dev/`, update version stamp
-- Never overwrite: `.claude/` auth state, `.config/gh/` auth, `.zsh_history`, `.local/`, `.cargo/`, `.bun/`
-- User manually reviews the template files before finalizing
+Since there is no home volume, dotfiles are simply baked into the image via the Dockerfile (`COPY dotfiles/ ...`). No version-stamp sync logic needed.
+
+- Copy dotfiles into `/home/dev/` during image build
+- Entrypoint remains minimal: just exec the provided command
+- User manually reviews dotfile templates before finalizing
 
 ### Phase 2i: Minimal `denv` script (for testing)
 
@@ -259,8 +253,7 @@ ZSH_THEME_GIT_PROMPT_CLEAN="%{$fg[blue]%})"
 4. Verify Playwright: Claude session inside container uses Playwright to visit a website
 5. Verify OrbStack networking: run `python3 -m http.server 8000`, access from Mac via `<container>.orb.local:8000`
 6. Verify shell: prompt looks right, git info works, colors work, tab completion works
-7. Verify entrypoint sync: rebuild image with a dotfile change, restart container, confirm picked up without losing auth state
-8. Verify stop/start persistence of auth, history, installed tools
+7. Verify stop/start persistence of auth, history, installed tools
 
 ---
 
@@ -283,8 +276,8 @@ Configure Claude Code inside the container with the right global instructions, s
 - Required MCP: Context7 (runs via `npx -y @upstash/context7-mcp`)
 
 **Update Dockerfile**:
-- Copy Claude config into `/opt/denv/home-template/.claude/`
-- Ensure entrypoint syncs Claude config (CLAUDE.md, settings.json, hooks) on version mismatch but preserves auth/session state
+- Copy Claude config into `/home/dev/.claude/` during image build
+- Config is baked into the image (no volume sync needed)
 
 ### How to Verify
 
@@ -315,8 +308,8 @@ Build the full `denv` CLI tool that manages the complete container lifecycle fro
 | `denv claude <project> [args]` | Run `claude` inside the container, passing any extra args |
 | `denv start <project>` | Start a stopped container |
 | `denv stop <project>` | Stop a running container |
-| `denv rm <project> [--volumes]` | Remove container. `--volumes` also removes the home volume. |
-| `denv rebuild [project]` | Rebuild base image. If project specified, recreate that container (preserving volumes). |
+| `denv rm <project>` | Remove container. |
+| `denv rebuild [project]` | Rebuild base image. If project specified, recreate that container. |
 | `denv ls` | List all denv containers with status (running/stopped) |
 | `denv scaffold <name> [path]` | Create a new project directory at `<path>/<name>` (default `~/dev/<name>`), populate with template files, `git init`, then `denv create`. |
 
@@ -334,7 +327,7 @@ Build the full `denv` CLI tool that manages the complete container lifecycle fro
 
 - `denv create` should check if a container already exists and warn/skip
 - `denv shell` and `denv claude` should auto-start a stopped container before exec-ing
-- `denv rebuild` should: rebuild the image, stop the container, remove it (keeping volumes), create a new container from the new image with the same mounts
+- `denv rebuild` should: rebuild the image, stop the container, remove it, create a new container from the new image with the same mounts (note: auth state will need to be re-done)
 - `denv ls` should show: project name, container status, project path
 - Error messages should be clear and suggest the right command
 
@@ -345,9 +338,9 @@ Build the full `denv` CLI tool that manages the complete container lifecycle fro
 3. `denv test-project` — opens shell
 4. `denv claude test-project` — starts Claude session
 5. `denv stop test-project` / `denv start test-project` — lifecycle works
-6. `denv rebuild test-project` — new image, state preserved
+6. `denv rebuild test-project` — new image, container recreated
 7. `denv scaffold new-idea` — creates `~/dev/new-idea/` with template files and a container
-8. `denv rm test-project --volumes` — cleans up
+8. `denv rm test-project` — cleans up
 
 ---
 

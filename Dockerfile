@@ -52,25 +52,36 @@ RUN groupadd -g 501 dev \
     && useradd -m -u 501 -g 501 -s /bin/zsh dev \
     && echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Install Claude Code as dev user (must not install from / — installer scans filesystem and hangs)
+# Install Claude Code as dev user
 USER dev
 WORKDIR /tmp
 RUN curl -fsSL https://claude.ai/install.sh | bash
-USER root
-ENV PATH="/home/dev/.local/bin:${PATH}"
 
-# Install Python via uv to a shared location (not /home/dev, which is a named volume)
-ENV UV_PYTHON_INSTALL_DIR=/opt/python
+# Install Python via uv
 RUN uv python install \
-    && PYDIR=$(ls -1d /opt/python/cpython-3.*.* | head -1) \
-    && ln -s "$PYDIR/bin/python3" /usr/local/bin/python3 \
-    && ln -s "$PYDIR/bin/python3" /usr/local/bin/python
+    && ln -s $(find ~/.local/bin -name 'python3.*' -not -name '*-*' | head -1) ~/.local/bin/python3 \
+    && ln -s ~/.local/bin/python3 ~/.local/bin/python
+
+# Install Rust via rustup
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/home/dev/.cargo/bin:${PATH}"
+
+# Install Go (official tarball from go.dev)
+USER root
+RUN ARCH=$(dpkg --print-architecture) \
+    && wget -nv -O /tmp/go.tar.gz "https://go.dev/dl/$(wget -qO- 'https://go.dev/VERSION?m=text' | head -1).linux-${ARCH}.tar.gz" \
+    && tar -C /usr/local -xzf /tmp/go.tar.gz \
+    && rm -f /tmp/go.tar.gz
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPATH="/home/dev/go"
+ENV PATH="/home/dev/go/bin:${PATH}"
 
 # Copy entrypoint
 COPY scripts/entrypoint.sh /opt/denv/entrypoint.sh
 RUN chmod +x /opt/denv/entrypoint.sh
 
 USER dev
+ENV PATH="/home/dev/.local/bin:${PATH}"
 WORKDIR /workspace
 
 ENTRYPOINT ["/opt/denv/entrypoint.sh"]
