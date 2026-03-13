@@ -71,10 +71,10 @@ cmd_create() {
         "$DENV_IMAGE" \
         sleep infinity >/dev/null
 
-    # --- Auth setup ---
+    # --- GitHub auth (device code flow works via docker exec) ---
     echo ""
     echo "=== GitHub Authentication ==="
-    echo "A browser window will open. Authenticate with GitHub."
+    echo "Follow the prompts to authenticate with GitHub."
     echo ""
     docker exec -it "$container" gh auth login \
         --hostname github.com \
@@ -83,20 +83,11 @@ cmd_create() {
         --skip-ssh-key
 
     echo ""
-    echo "=== Claude Authentication ==="
-    echo "A browser window will open. Authenticate with Claude."
+    echo "Container '$container' created. To finish setup:"
     echo ""
-    docker exec -it "$container" claude auth login
-
-    # --- Plugin setup ---
-    echo ""
-    echo "=== Installing Claude plugins ==="
-    docker exec "$container" /opt/denv/install-claude-plugins.sh
-
-    echo ""
-    echo "Container '$container' is ready."
-    echo "  denv $project        — open a shell"
-    echo "  denv claude $project — start Claude Code"
+    echo "  1. denv $project"
+    echo "  2. claude              (then /login to authenticate)"
+    echo "  3. /opt/denv/install-claude-plugins.sh"
 }
 
 cmd_shell() {
