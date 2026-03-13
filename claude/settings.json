@@ -16,6 +16,20 @@
       "Skill(playwright-cli:*)"
     ]
   },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/opt/denv/hooks/gate-writes.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
     "css-expert@dannysmith": true,
     "frontend-design@claude-plugins-official": true,

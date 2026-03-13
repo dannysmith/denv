@@ -118,10 +118,11 @@ RUN (curl -fsSL https://raw.githubusercontent.com/ghostty-org/ghostty/main/src/t
     && rm -f /tmp/ghostty.terminfo) \
     || echo "Warning: ghostty terminfo not installed"
 
-# Copy denv scripts
+# Copy denv scripts and hooks
 COPY scripts/entrypoint.sh /opt/denv/entrypoint.sh
 COPY scripts/install-claude-plugins.sh /opt/denv/install-claude-plugins.sh
-RUN chmod +x /opt/denv/entrypoint.sh /opt/denv/install-claude-plugins.sh
+COPY claude/hooks/gate-writes.sh /opt/denv/hooks/gate-writes.sh
+RUN chmod +x /opt/denv/entrypoint.sh /opt/denv/install-claude-plugins.sh /opt/denv/hooks/gate-writes.sh
 
 # Copy dotfiles
 COPY --chown=dev:dev dotfiles/zshrc /home/dev/.zshrc
