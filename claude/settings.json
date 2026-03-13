@@ -9,8 +9,8 @@
       "Bash(*)",
       "WebFetch(*)",
       "WebSearch(*)",
-      "MCP(context7:*)",
-      "MCP(playwright:*)",
+      "mcp__context7__*",
+      "mcp__playwright__*",
       "Skill(css-expert:*)",
       "Skill(frontend-design:*)",
       "Skill(playwright-cli:*)"
