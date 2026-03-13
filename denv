@@ -2,6 +2,7 @@
 set -euo pipefail
 
 DENV_IMAGE="denv-base"
+DENV_DIR="$(cd "$(dirname "$(readlink "$0" || echo "$0")")" && pwd)"
 
 die() { echo "denv: $*" >&2; exit 1; }
 
@@ -19,7 +20,7 @@ container_name() {
 ensure_image() {
     if ! docker image inspect "$DENV_IMAGE" &>/dev/null; then
         echo "Building $DENV_IMAGE image..."
-        docker build -t "$DENV_IMAGE" "$(dirname "$0")"
+        docker build -t "$DENV_IMAGE" "$DENV_DIR"
     fi
 }
 

@@ -8,7 +8,7 @@ fi
 
 # --- PATH ---
 # Most paths are set via ENV in Dockerfile, but ensure they're available in interactive shells
-export PATH="/home/dev/.local/bin:/home/dev/go/bin:/usr/local/go/bin:/home/dev/.cargo/bin:/opt/bun/bin:/opt/fnm/aliases/default/bin:$PATH"
+export PATH="/home/dev/.local/bin:/home/dev/go/bin:/usr/local/go/bin:/home/dev/.cargo/bin:/opt/bun/bin:/opt/fnm:/opt/fnm/aliases/default/bin:$PATH"
 
 # --- fnm (Node version manager) ---
 eval "$(fnm env)"
