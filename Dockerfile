@@ -2,7 +2,7 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Base system packages
+# Base system packages + CLI tools
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -15,7 +15,17 @@ RUN apt-get update && apt-get install -y \
     unzip \
     openssh-client \
     locales \
-    && rm -rf /var/lib/apt/lists/*
+    ripgrep \
+    fd-find \
+    bat \
+    tree \
+    ncdu \
+    sqlite3 \
+    libvips-tools \
+    miller \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/bin/fdfind /usr/local/bin/fd \
+    && ln -s /usr/bin/batcat /usr/local/bin/bat
 
 # Set up locale
 RUN locale-gen en_US.UTF-8
@@ -76,7 +86,16 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH="/home/dev/go"
 ENV PATH="/home/dev/go/bin:${PATH}"
 
+# Install CLI tools via go install (as dev user)
+USER dev
+RUN go install github.com/mikefarah/yq/v4@latest
+
+# Install Python CLI tools via uv
+RUN uv tool install showboat \
+    && uv tool install chartroom
+
 # Copy entrypoint
+USER root
 COPY scripts/entrypoint.sh /opt/denv/entrypoint.sh
 RUN chmod +x /opt/denv/entrypoint.sh
 
