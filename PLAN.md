@@ -21,10 +21,10 @@ Mac (host)
 │
 └── Docker container (via OrbStack)
     ├── /workspace/            ← bind mount of ~/dev/my-project (same files)
-    ├── /home/dev/             ← named volume (persists across rebuilds)
+    ├── /home/dev/             ← baked into image (reset on rebuild)
     │   ├── .claude/           ← Claude auth + runtime state
     │   ├── .config/gh/        ← GitHub CLI auth
-    │   ├── .zshrc             ← shell config (synced from image on rebuild)
+    │   ├── .zshrc             ← shell config
     │   └── ...
     └── (system)               ← from base image (runtimes, CLI tools, etc.)
 ```
@@ -65,7 +65,7 @@ There is no home directory volume. `/home/dev` lives in the container's writable
 
 ### Networking
 
-OrbStack gives each container a `<container-name>.orb.local` domain where all ports are accessible without any `-p` flags (e.g., `denv-my-project.orb.local:3000`). For `localhost` access, explicit `-p` mapping may still be needed — verify in Phase 1. The `.orb.local` approach is preferable anyway since it avoids port conflicts when multiple containers run dev servers on the same port number.
+OrbStack gives each container a `<container-name>.orb.local` domain where all ports are accessible without any `-p` flags (e.g., `denv-my-project.orb.local:3000`). No `-p` port mapping is used. The `.orb.local` approach avoids port conflicts when multiple containers run dev servers on the same port number.
 
 ### Container Naming
 
@@ -109,10 +109,9 @@ denv/
 - Set `WORKDIR /workspace`
 
 **entrypoint.sh** — minimal:
-- Ensure correct ownership of `/home/dev` volume
 - Exec into zsh (or whatever command was passed)
 
-**Volume setup**: bind mount for project dir, named volume for home.
+**Volume setup**: bind mount for project dir. No home volume — `/home/dev` is baked into the image.
 
 ### How to Verify
 
