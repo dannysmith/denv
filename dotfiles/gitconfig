@@ -1,0 +1,66 @@
+[user]
+	name = Danny Smith
+	email = hi@danny.is
+[alias]
+	st = status
+	co = checkout
+	br = branch
+	p = push
+	df = diff
+	lg = log --graph --pretty=format:'%C(yellow)%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset'
+	lga = log --graph --pretty=format:'%C(yellow)%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset' --all
+	pf = push --force-with-lease
+	amend = commit --amend --no-edit
+	who = shortlog -s --
+	cl = clone
+	purr = pull --rebase --autostash
+	stashed = stash list --pretty=format:'%gd: %Cred%h%Creset %Cgreen[%ar]%Creset %s'
+[core]
+	excludesfile = ~/.gitignore_global
+	autocrlf = input
+[merge]
+	summary = true
+[pull]
+	rebase = true
+[rerere]
+	enabled = true
+[commit]
+	verbose = true
+[color]
+	ui = always
+	diff = auto
+	status = auto
+	branch = auto
+	interactive = auto
+[color "diff"]
+	meta = yellow bold
+	commit = green bold
+	frag = magenta bold
+	old = red bold
+	new = green bold
+	whitespace = red reverse
+[color "diff-highlight"]
+	oldNormal = red
+	oldHighlight = "red bold 52"
+	newNormal = "green"
+	newHighlight = "green bold 22"
+[color "branch"]
+	current = yellow reverse
+	local = yellow
+	remote = green
+[color "status"]
+	added = yellow
+	changed = green
+	untracked = cyan
+[url "git@github.com:"]
+	insteadOf = "gh:"
+	insteadOf = "git://github.com"
+	pushInsteadOf = "github:"
+	pushInsteadOf = "git://github.com/"
+	pushInsteadOf = "https://github.com/"
+[init]
+	defaultBranch = main
+[credential "https://github.com"]
+	helper = !/usr/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = !/usr/bin/gh auth git-credential

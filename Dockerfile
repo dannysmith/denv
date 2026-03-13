@@ -109,10 +109,25 @@ RUN bun install -g @playwright/cli \
 USER dev
 RUN go install github.com/simonw/rodney@latest
 
-# Copy entrypoint
+# --- Terminal & Dotfiles ---
 USER root
+
+# Install ghostty terminfo (non-fatal if unavailable)
+RUN (curl -fsSL https://raw.githubusercontent.com/ghostty-org/ghostty/main/src/terminfo/ghostty.terminfo -o /tmp/ghostty.terminfo \
+    && tic -x -o /usr/share/terminfo /tmp/ghostty.terminfo \
+    && rm -f /tmp/ghostty.terminfo) \
+    || echo "Warning: ghostty terminfo not installed"
+
+# Copy entrypoint
 COPY scripts/entrypoint.sh /opt/denv/entrypoint.sh
 RUN chmod +x /opt/denv/entrypoint.sh
+
+# Copy dotfiles
+COPY --chown=dev:dev dotfiles/zshrc /home/dev/.zshrc
+COPY --chown=dev:dev dotfiles/gitconfig /home/dev/.gitconfig
+COPY --chown=dev:dev dotfiles/gitignore_global /home/dev/.gitignore_global
+
+ENV COLORTERM=truecolor
 
 USER dev
 ENV PATH="/home/dev/.local/bin:${PATH}"

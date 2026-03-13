@@ -1,0 +1,59 @@
+# denv container zshrc
+
+# --- Terminal ---
+# Fall back to xterm-256color if current TERM isn't in terminfo database
+if ! infocmp "$TERM" &>/dev/null; then
+    export TERM=xterm-256color
+fi
+
+# --- PATH ---
+# Most paths are set via ENV in Dockerfile, but ensure they're available in interactive shells
+export PATH="/home/dev/.local/bin:/home/dev/go/bin:/usr/local/go/bin:/home/dev/.cargo/bin:/opt/bun/bin:/opt/fnm/aliases/default/bin:$PATH"
+
+# --- fnm (Node version manager) ---
+eval "$(fnm env)"
+
+# --- Completion ---
+autoload -Uz compinit
+compinit
+
+# --- Git Prompt (pure zsh, no OMZ) ---
+autoload -Uz vcs_info
+precmd_functions+=( vcs_info )
+setopt PROMPT_SUBST
+
+zstyle ':vcs_info:*' enable git
+zstyle ':vcs_info:git:*' check-for-changes true
+zstyle ':vcs_info:git:*' stagedstr 'Y'
+zstyle ':vcs_info:git:*' unstagedstr 'Y'
+zstyle ':vcs_info:git:*' formats '%b' '%c' '%u'
+zstyle ':vcs_info:git:*' actionformats '%b|%a' '%c' '%u'
+
+# Build git info string: (branch) or (branch) ✗ if dirty
+_git_prompt() {
+    [[ -z "$vcs_info_msg_0_" ]] && return
+    local dirty=""
+    [[ -n "$vcs_info_msg_1_" || -n "$vcs_info_msg_2_" ]] && dirty=" %F{yellow}✗%f"
+    echo -n " %B%F{blue}(%F{red}${vcs_info_msg_0_}%F{blue})%f%b${dirty}"
+}
+
+# --- Prompt ---
+# Style: newline, [denv:project] blue cwd, git info, newline, green/red arrow
+NEWLINE=$'\n'
+PROMPT="${NEWLINE}%F{242}[denv:\${DENV_PROJECT:-?}]%f %F{blue}%~%f\$(_git_prompt)"
+PROMPT+="${NEWLINE}"
+PROMPT+='%(?.%B%F{green}➜%f%b .%B%F{red}➜%f%b )'
+
+# --- Aliases ---
+alias g='git'
+alias gst='git status -s'
+alias gcm='git commit -m'
+alias gco='git checkout'
+alias ghopen='gh repo view --web'
+alias cat='bat'
+alias ls='ls --color=auto'
+alias ll='ls -lah'
+alias reload="exec $SHELL -l"
+
+# --- Editor ---
+export EDITOR=nano

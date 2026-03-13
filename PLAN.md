@@ -194,7 +194,7 @@ Not including:
 - Docker runtime considerations: containers need `--init` and `--ipc=host` flags for Chromium stability
 - Headless mode only (headed mode can be done locally on the Mac instead)
 
-### Phase 2f: Dotfiles
+### Phase 2f: Dotfiles [✅ DONE]
 
 Create `dotfiles/` directory in repo with baseline config files. User will manually review and add personal aliases/preferences.
 
@@ -202,7 +202,7 @@ Create `dotfiles/` directory in repo with baseline config files. User will manua
 - `gitconfig` — pull rebase, verbose commits, `gh auth git-credential` for HTTPS auth, colors enabled
 - `gitignore_global` — OS files, editor files, env files, *.local and *.local.*
 
-### Phase 2g: Prompt, terminal colors & TUI support
+### Phase 2g: Prompt, terminal colors & TUI support [✅ DONE]
 
 **Terminal/color setup**:
 - Install the `xterm-ghostty` terminfo entry in the image so `TERM=xterm-ghostty` works when connecting from Ghostty
@@ -231,7 +231,7 @@ ZSH_THEME_GIT_PROMPT_DIRTY="%{$fg[blue]%}) %{$fg[yellow]%}%1{✗%}"
 ZSH_THEME_GIT_PROMPT_CLEAN="%{$fg[blue]%})"
 ```
 
-### Phase 2h: Entrypoint & dotfiles in image
+### Phase 2h: Entrypoint & dotfiles in image [✅ DONE]
 
 Since there is no home volume, dotfiles are simply baked into the image via the Dockerfile (`COPY dotfiles/ ...`). No version-stamp sync logic needed.
 

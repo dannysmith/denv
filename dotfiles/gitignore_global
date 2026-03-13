@@ -1,0 +1,80 @@
+######################
+# macOS System Files #
+######################
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon\?
+._.DS_Store
+
+########################
+# Windows System Files #
+########################
+
+ehthumbs.db
+Thumbs.db
+
+#########################
+# Linux System Files    #
+#########################
+
+.tags
+.tags1
+.tags2
+
+######################
+# Vim/Neovim/Emacs   #
+######################
+
+*.swp
+*.swo
+*.un~
+*~
+#*#
+
+######################
+# Log & Temp Files    #
+######################
+
+*.log
+*.bak
+*.tmp
+*.temp
+*.orig
+*.old
+
+######################
+# Python Artifacts    #
+######################
+
+__pycache__/
+*.py[cod]
+*.pyo
+
+######################
+# Environment Files   #
+######################
+
+.env
+.env.*
+!.env.example
+
+######################
+# Zsh                 #
+######################
+
+.zsh_history
+.zsh_sessions
+
+######################
+# Local Files
+######################
+
+.local
+*.local
+*.local.*
