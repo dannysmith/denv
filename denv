@@ -16,16 +16,17 @@ container_name() {
     echo "denv-$1"
 }
 
-# Build the base image if it doesn't exist
+# Build the base image if it doesn't exist (or force rebuild)
 ensure_image() {
-    if ! docker image inspect "$DENV_IMAGE" &>/dev/null; then
+    local force="${1:-}"
+    if [ "$force" = "force" ] || ! docker image inspect "$DENV_IMAGE" &>/dev/null; then
         echo "Building $DENV_IMAGE image..."
         docker build -t "$DENV_IMAGE" "$DENV_DIR"
     fi
 }
 
-# Ensure a container exists and is running, return container name
-ensure_running() {
+# Ensure a container exists (running or stopped), return container name
+ensure_exists() {
     local project="$1"
     local container
     container="$(container_name "$project")"
@@ -33,6 +34,35 @@ ensure_running() {
     if ! docker container inspect "$container" &>/dev/null; then
         die "Container '$container' does not exist. Use 'denv create <path>' first."
     fi
+
+    echo "$container"
+}
+
+# Create a container (docker run only, no auth). Used by create and rebuild.
+create_container() {
+    local project="$1"
+    local path="$2"
+    local container
+    container="$(container_name "$project")"
+
+    docker run -d \
+        --name "$container" \
+        --hostname "$project" \
+        --init \
+        --ipc=host \
+        -e "DENV_PROJECT=$project" \
+        -v "$path:/workspace" \
+        --label "denv.project=$project" \
+        --label "denv.path=$path" \
+        --label "denv.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        "$DENV_IMAGE" \
+        sleep infinity >/dev/null
+}
+
+# Ensure a container exists and is running, return container name
+ensure_running() {
+    local container
+    container="$(ensure_exists "$1")"
 
     if [ "$(docker inspect -f '{{.State.Running}}' "$container")" != "true" ]; then
         docker start "$container" >/dev/null
@@ -58,18 +88,7 @@ cmd_create() {
     ensure_image
 
     echo "Creating container '$container' for $path..."
-    docker run -d \
-        --name "$container" \
-        --hostname "$project" \
-        --init \
-        --ipc=host \
-        -e "DENV_PROJECT=$project" \
-        -v "$path:/workspace" \
-        --label "denv.project=$project" \
-        --label "denv.path=$path" \
-        --label "denv.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-        "$DENV_IMAGE" \
-        sleep infinity >/dev/null
+    create_container "$project" "$path"
 
     # --- GitHub auth (device code flow works via docker exec) ---
     echo ""
@@ -119,6 +138,127 @@ cmd_update_plugins() {
     docker exec "$container" /opt/denv/install-claude-plugins.sh
 }
 
+cmd_start() {
+    local project="${1:?Usage: denv start <project>}"
+    local container
+    container="$(ensure_exists "$project")"
+
+    if [ "$(docker inspect -f '{{.State.Running}}' "$container")" = "true" ]; then
+        echo "Container '$container' is already running."
+    else
+        docker start "$container" >/dev/null
+        echo "Started '$container'."
+    fi
+}
+
+cmd_stop() {
+    local project="${1:?Usage: denv stop <project>}"
+    local container
+    container="$(ensure_exists "$project")"
+
+    if [ "$(docker inspect -f '{{.State.Running}}' "$container")" != "true" ]; then
+        echo "Container '$container' is already stopped."
+    else
+        docker stop "$container" >/dev/null
+        echo "Stopped '$container'."
+    fi
+}
+
+cmd_rm() {
+    local project="${1:?Usage: denv rm <project>}"
+    local container
+    container="$(ensure_exists "$project")"
+
+    docker rm -f "$container" >/dev/null
+    echo "Removed '$container'."
+}
+
+cmd_rebuild() {
+    local project="${1:-}"
+
+    ensure_image force
+
+    if [ -z "$project" ]; then
+        echo "Image rebuilt. Run 'denv rebuild <project>' to recreate a container."
+        return
+    fi
+
+    local container
+    container="$(container_name "$project")"
+
+    if ! docker container inspect "$container" &>/dev/null; then
+        die "Container '$container' does not exist. Nothing to recreate."
+    fi
+
+    # Read the project path from the container's labels
+    local path
+    path="$(docker inspect -f '{{index .Config.Labels "denv.path"}}' "$container")"
+
+    if [ -z "$path" ]; then
+        die "Could not read project path from container labels."
+    fi
+
+    echo "Removing old container '$container'..."
+    docker rm -f "$container" >/dev/null
+
+    echo "Creating new container '$container' for $path..."
+    create_container "$project" "$path"
+
+    echo ""
+    echo "Container '$container' recreated from new image."
+    echo "Auth state was reset. To re-authenticate:"
+    echo ""
+    echo "  1. denv $project"
+    echo "  2. gh auth login --hostname github.com --git-protocol https --web --skip-ssh-key"
+    echo "  3. claude              (then /login to authenticate)"
+    echo "  4. /opt/denv/install-claude-plugins.sh"
+}
+
+cmd_ls() {
+    local format='{{.Label "denv.project"}}\t{{.State}}\t{{.Label "denv.path"}}'
+    local output
+    output="$(docker ps -a --filter label=denv.project --format "$format" 2>/dev/null)"
+
+    if [ -z "$output" ]; then
+        echo "No denv containers found."
+        return
+    fi
+
+    printf "%-20s %-10s %s\n" "PROJECT" "STATUS" "PATH"
+    echo "$output" | while IFS=$'\t' read -r name state path; do
+        case "$state" in
+            running) status="running" ;;
+            *)       status="stopped" ;;
+        esac
+        printf "%-20s %-10s %s\n" "$name" "$status" "$path"
+    done
+}
+
+cmd_scaffold() {
+    local name="${1:?Usage: denv scaffold <name> [path]}"
+    local base="${2:-$HOME/dev}"
+    local target="$base/$name"
+
+    if [ -d "$target" ]; then
+        die "Directory '$target' already exists."
+    fi
+
+    echo "Scaffolding project '$name' at $target..."
+    mkdir -p "$target"
+    cp -r "$DENV_DIR/scaffold/." "$target/"
+
+    # Replace placeholder in README
+    sed -i '' "s/__PROJECT_NAME__/$name/g" "$target/README.md"
+
+    # Initialize git repo
+    git -C "$target" init -q
+    git -C "$target" add -A
+    git -C "$target" commit -q -m "Initial scaffold"
+
+    echo "Project scaffolded. Creating container..."
+    cmd_create "$target"
+}
+
 # --- Main ---
 
 cmd="${1:-}"
@@ -128,6 +268,12 @@ case "$cmd" in
     create)          cmd_create "$@" ;;
     shell)           cmd_shell "$@" ;;
     claude)          cmd_claude "$@" ;;
+    start)           cmd_start "$@" ;;
+    stop)            cmd_stop "$@" ;;
+    rm)              cmd_rm "$@" ;;
+    rebuild)         cmd_rebuild "$@" ;;
+    ls)              cmd_ls ;;
+    scaffold)        cmd_scaffold "$@" ;;
     update-plugins)  cmd_update_plugins "$@" ;;
     "")              die "Usage: denv <command> [args]
 
@@ -135,6 +281,12 @@ Commands:
   create <path>            Create a container for a project
   shell <project>          Open a shell in a container
   claude <project> [args]  Start Claude Code in a container
+  start <project>          Start a stopped container
+  stop <project>           Stop a running container
+  rm <project>             Remove a container
+  rebuild [project]        Rebuild image; if project given, recreate container
+  ls                       List all denv containers
+  scaffold <name> [path]   Create a new project with templates and container
   update-plugins <project> Update Claude plugins from latest script" ;;
     *)               cmd_shell "$cmd" "$@" ;;  # denv <project> is shortcut for denv shell <project>
 esac

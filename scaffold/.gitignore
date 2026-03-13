@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+vendor/
+target/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+*.swp
+*.swo
+*~
+
+# Build output
+dist/
+build/
+out/
+*.o
+*.pyc
+__pycache__/
+
+# Logs
+*.log
