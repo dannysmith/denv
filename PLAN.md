@@ -135,11 +135,11 @@ denv/
 
 Flesh out the base image with all required runtimes, CLI tools, and a sensible shell configuration. After this phase, shelling into a container should feel productive.
 
-### Phase 2a: Node + Bun (verify existing setup)
+### Phase 2a: Node + Bun (verify existing setup) [✅ DONE]
 
 Node.js and Bun are already installed from Phase 1. Verify they work correctly for global tool installation (needed by later steps). Confirm `npx`/`bunx` work.
 
-### Phase 2b: Python + uv
+### Phase 2b: Python + uv [✅ DONE]
 
 - Install uv via COPY from official distroless image: `COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/`
 - Install Python via uv: `uv python install` (no apt python3 needed — uv manages Python entirely)
@@ -147,19 +147,19 @@ Node.js and Bun are already installed from Phase 1. Verify they work correctly f
 - `uvx` runs Python CLI tools on-demand without global installs; `uv tool install` for persistent global installs
 - Verify: `uv --version`, `python3 --version` (via uv-managed Python), `uvx --version`
 
-### Phase 2c: Rust
+### Phase 2c: Rust [✅ DONE]
 
 - Install Rust via rustup as the `dev` user: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`
 - This gives us `rustc`, `cargo`, and the ability to `cargo install` tools
 - Verify: `rustc --version`, `cargo --version`
 
-### Phase 2c2: Go
+### Phase 2c2: Go [✅ DONE]
 
 - Install Go via official tarball from go.dev (the recommended method)
 - Useful beyond Go projects: many developer tools are written in Go (yq, rodney, lazygit, glow, etc.) and Claude can `go install` them on the fly
 - Verify: `go version`
 
-### Phase 2d: CLI tools
+### Phase 2d: CLI tools [✅ DONE]
 
 Install via apt (all available in Ubuntu 24.04 repos):
 - `ripgrep` (binary: `rg`) — fast recursive grep
@@ -184,15 +184,15 @@ Not including:
 - `xsv` — archived/unmaintained; miller + sqlite-utils covers CSV work
 - `dust` — ncdu covers disk usage analysis
 
-### Phase 2e: Playwright + Chromium
+### Phase 2e: Playwright + Chromium [✅ DONE]
 
-- Install Playwright globally: `bun add -g playwright` (or `npm i -g playwright`)
-- Install Chromium browser binary + system deps: `npx playwright install --with-deps chromium`
-- The `--with-deps` flag runs `apt-get install` for all required shared libraries automatically
-- Install `@playwright/cli` for agent-friendly CLI commands (note: currently v0.1.1, pins to playwright alpha — may want to wait for stability)
-- Docker runtime considerations: container should use `--init` flag and `--ipc=host` (or larger `/dev/shm`) to prevent Chromium crashes
-- Total disk footprint: ~400-500 MB for Chromium + system deps
-- Verify: have Claude use Playwright inside the container to visit a website and extract data
+- Installed `@playwright/cli` globally via bun (`bun install -g @playwright/cli`)
+- Browsers installed using the exact playwright version bundled with @playwright/cli to avoid revision mismatch
+- Browsers stored in `/opt/playwright-browsers` (accessible to dev user)
+- `PLAYWRIGHT_MCP_BROWSER=chromium` env var configured — full Chrome is x86-only on Linux, bundled Chromium works on ARM64
+- `rodney` (Simon Willison's headless Chrome CLI) installed via `go install`
+- Docker runtime considerations: containers need `--init` and `--ipc=host` flags for Chromium stability
+- Headless mode only (headed mode can be done locally on the Mac instead)
 
 ### Phase 2f: Dotfiles
 
