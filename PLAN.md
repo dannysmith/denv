@@ -129,7 +129,7 @@ denv/
 
 ---
 
-## Phase 2: Dotfiles & Dev Tools
+## Phase 2: Dotfiles & Dev Tools  [✅ DONE]
 
 ### Goal
 
@@ -245,7 +245,7 @@ Since there is no home volume, dotfiles are simply baked into the image via the 
 - `denv shell <project>` — runs `docker exec -it` into existing container (starts it first if stopped)
 - Add to PATH or symlink for convenience
 
-### Phase 2j: Manual testing
+### Phase 2j: Manual testing  [✅ DONE]
 
 1. Rebuild image, create test container via `denv create`
 2. Verify all runtimes: `node`, `bun`, `python3`, `rustc`, `uv`, `cargo`
@@ -259,34 +259,15 @@ Since there is no home volume, dotfiles are simply baked into the image via the 
 
 ## Phase 3: Claude Code Customisation
 
-### Goal
+See [docs/CLAUDE_SETUP_PLAN.md](docs/CLAUDE_SETUP_PLAN.md) for the full plan.
 
-Configure Claude Code inside the container with the right global instructions, settings, plugins, skills, and MCPs. After this phase, starting Claude in a container should have all the tools and context it needs.
+Configure Claude Code inside the container with global instructions (`claude/CLAUDE.md`), settings (`claude/settings.json`), MCP config, and a reusable plugin installation script. Also improve `denv create` to handle auth (GitHub + Claude) and plugin setup automatically.
 
-### What to Build
-
-**Claude config** (`claude/` in repo):
-- `CLAUDE.md` — global instructions for the container environment. Based on `GLOBAL_CLAUDE.md` but completed. Key contents:
-- `settings.json` — initial permissive settings (will be refined in Phase 5). For now: broad allow list, minimal deny list.
-
-**Plugin/skill/MCP installation**:
-- Determine how Claude Code plugins and skills are installed non-interactively (via CLI commands, config files, or file placement)
-- Bake plugin/skill installation into the Dockerfile or entrypoint
-- Required: defuddle skill, frontend-design skill, css-expert skill
-- Required MCP: Context7 (runs via `npx -y @upstash/context7-mcp`)
-
-**Update Dockerfile**:
-- Copy Claude config into `/home/dev/.claude/` during image build
-- Config is baked into the image (no volume sync needed)
-
-### How to Verify
-
-1. Rebuild image, recreate container
-2. Start Claude session inside container
-3. Verify Claude knows about the environment (ask it what tools are available)
-4. Verify Context7 MCP works (ask Claude to look up docs for a library)
-5. Verify skills are available (try invoking defuddle, css-expert)
-6. Verify settings are applied (check `/home/dev/.claude/settings.json`)
+Four sub-phases:
+1. **CLAUDE.md** — complete global instructions for the container environment
+2. **Settings & Config** — settings.json, .claude.json (MCP config), Dockerfile updates
+3. **Plugin Installation Script** — reusable `install-claude-plugins.sh` that can update plugins in any container without rebuilding
+4. **Better `denv create`** — automated auth flow (gh + claude) and plugin setup on container creation
 
 ---
 
