@@ -239,7 +239,7 @@ Since there is no home volume, dotfiles are simply baked into the image via the 
 - Entrypoint remains minimal: just exec the provided command
 - User manually reviews dotfile templates before finalizing
 
-### Phase 2i: Minimal `denv` script (for testing)
+### Phase 2i: Minimal `denv` script (for testing) [✅ DONE]
 
 - `denv create <path>` — runs `docker run` with correct mounts, naming, `--init`, and `--ipc=host` flags
 - `denv shell <project>` — runs `docker exec -it` into existing container (starts it first if stopped)

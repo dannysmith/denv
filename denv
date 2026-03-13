@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DENV_IMAGE="denv-base"
+
+die() { echo "denv: $*" >&2; exit 1; }
+
+# Resolve project name from a path (uses the directory basename)
+project_name_from_path() {
+    basename "$(cd "$1" && pwd)"
+}
+
+# Get the container name for a project
+container_name() {
+    echo "denv-$1"
+}
+
+# Build the base image if it doesn't exist
+ensure_image() {
+    if ! docker image inspect "$DENV_IMAGE" &>/dev/null; then
+        echo "Building $DENV_IMAGE image..."
+        docker build -t "$DENV_IMAGE" "$(dirname "$0")"
+    fi
+}
+
+# --- Commands ---
+
+cmd_create() {
+    local path="${1:?Usage: denv create <path>}"
+    path="$(cd "$path" && pwd)"
+    local project
+    project="$(project_name_from_path "$path")"
+    local container
+    container="$(container_name "$project")"
+
+    if docker container inspect "$container" &>/dev/null; then
+        die "Container '$container' already exists. Use 'denv shell $project' to connect."
+    fi
+
+    ensure_image
+
+    docker run -d \
+        --name "$container" \
+        --hostname "$project" \
+        --init \
+        --ipc=host \
+        -e "DENV_PROJECT=$project" \
+        -v "$path:/workspace" \
+        --label "denv.project=$project" \
+        --label "denv.path=$path" \
+        --label "denv.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        "$DENV_IMAGE" \
+        sleep infinity
+
+    echo "Created container '$container' for $path"
+}
+
+cmd_shell() {
+    local project="${1:?Usage: denv shell <project>}"
+    local container
+    container="$(container_name "$project")"
+
+    if ! docker container inspect "$container" &>/dev/null; then
+        die "Container '$container' does not exist. Use 'denv create <path>' first."
+    fi
+
+    # Start if stopped
+    if [ "$(docker inspect -f '{{.State.Running}}' "$container")" != "true" ]; then
+        docker start "$container" >/dev/null
+    fi
+
+    docker exec -it -e "DENV_PROJECT=$project" "$container" zsh
+}
+
+# --- Main ---
+
+cmd="${1:-}"
+shift 2>/dev/null || true
+
+case "$cmd" in
+    create)  cmd_create "$@" ;;
+    shell)   cmd_shell "$@" ;;
+    "")      die "Usage: denv <command> [args]\n\nCommands:\n  create <path>    Create a container for a project\n  shell <project>  Open a shell in a container" ;;
+    *)       cmd_shell "$cmd" "$@" ;;  # denv <project> is shortcut for denv shell <project>
+esac
