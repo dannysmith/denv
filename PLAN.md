@@ -267,105 +267,17 @@ Configured Claude Code inside the container with global instructions (`claude/CL
 
 ---
 
-## Phase 4: Complete the `denv` CLI
+## Phase 4: Complete the `denv` CLI [✅ DONE]
 
-### Goal
-
-Build the full `denv` CLI tool that manages the complete container lifecycle from the Mac.
-
-### What to Build
-
-**`denv`** — a shell script (bash or zsh) providing:
-
-| Command | Description |
-|---|---|
-| `denv create <path>` | Create a new container for the project at `<path>`. Uses directory name as project name. Builds image if needed. |
-| `denv <project>` | Shortcut for `denv shell <project>` |
-| `denv shell <project>` | Open a zsh shell inside the container (starts it first if stopped) |
-| `denv claude <project> [args]` | Run `claude` inside the container, passing any extra args |
-| `denv start <project>` | Start a stopped container |
-| `denv stop <project>` | Stop a running container |
-| `denv rm <project>` | Remove container. |
-| `denv rebuild [project]` | Rebuild base image. If project specified, recreate that container. |
-| `denv ls` | List all denv containers with status (running/stopped) |
-| `denv scaffold <name> [path]` | Create a new project directory at `<path>/<name>` (default `~/dev/<name>`), populate with template files, `git init`, then `denv create`. |
-
-**Scaffold templates** (`scaffold/` in repo):
-- `README.md` — minimal project readme
-- `AGENTS.md` — Basic project instructions
-- `CLAUDE.md` - Just "@AGENTS.md"
-- `.gitignore` — sensible defaults
-- `docs/tasks-todo/.gitkeep`
-- `docs/tasks-done/.gitkeep`
-
-**Installation**: the script lives in the repo. User symlinks it to somewhere on PATH (e.g., `ln -s ~/dev/denv/denv ~/.local/bin/denv`).
-
-### Design Notes
-
-- `denv create` should check if a container already exists and warn/skip
-- `denv shell` and `denv claude` should auto-start a stopped container before exec-ing
-- `denv rebuild` should: rebuild the image, stop the container, remove it, create a new container from the new image with the same mounts (note: auth state will need to be re-done)
-- `denv ls` should show: project name, container status, project path
-- Error messages should be clear and suggest the right command
-
-### How to Verify
-
-1. `denv create ~/dev/test-project` — creates container
-2. `denv ls` — shows the container
-3. `denv test-project` — opens shell
-4. `denv claude test-project` — starts Claude session
-5. `denv stop test-project` / `denv start test-project` — lifecycle works
-6. `denv rebuild test-project` — new image, container recreated
-7. `denv scaffold new-idea` — creates `~/dev/new-idea/` with template files and a container
-8. `denv rm test-project` — cleans up
+Added all remaining lifecycle commands (`start`, `stop`, `rm`, `rebuild`, `ls`, `scaffold`) to the `denv` CLI. Extracted `create_container()` and `ensure_exists()` helpers to share logic between `create` and `rebuild`. Created `scaffold/` directory with template files for new project bootstrapping.
 
 ---
 
-## Phase 5: CC Permissions & Write-Gating
+## Phase 5: CC Permissions & Write-Gating [✅ DONE]
 
-### Goal
+Went with Option B (permissive allow list + hook). Added a `PreToolUse` hook (`claude/hooks/gate-writes.sh`) that intercepts Bash commands and returns `permissionDecision: "ask"` for write operations to external services (git push, gh pr/issue/release mutations, gh api with mutating methods, npm/cargo publish). All local operations remain auto-approved via the `Bash(*)` allow rule. The hook is baked into the image at `/opt/denv/hooks/gate-writes.sh`.
 
-Lock down Claude Code's ability to write to external services while preserving full autonomy inside the container. After this phase, Claude can do anything locally but cannot push code, create PRs, or mutate remote state without explicit approval.
-
-### Approach Options (decide at implementation time)
-
-**Option A: `--dangerously-skip-permissions` + hooks**
-- Claude runs with no permission prompts at all
-- A `PreToolUse` hook script inspects every Bash command and blocks write operations
-- Simpler: no allowlist maintenance
-- Risk: if a hook fails to catch something, there is no fallback
-
-**Option B: Very permissive settings (no `--dangerously-skip-permissions`)**
-- Broad `allow` list covering all read operations, local commands, web fetches, etc.
-- Specific `deny` or `ask` rules for write operations (git push, gh api POST, etc.)
-- Claude still prompts for truly unknown commands
-- More conservative: unknown commands default to asking
-
-Either option uses the same write-gating logic. The question is whether unknown/uncategorised commands should silently succeed (Option A) or prompt (Option B).
-
-### What to Build
-
-**Write-gating hook** (`claude/hooks/gate-writes.sh`):
-- Receives tool call JSON on stdin
-- For Bash commands, inspects the command string
-- Blocks (exit 2 or deny response): `git push`, `git push *`, `gh pr create`, `gh issue create`, `gh api` with `-X POST|PUT|DELETE|PATCH` or `--method POST|PUT|DELETE|PATCH`, `curl -X POST` to external URLs, any publish/deploy commands
-- Allows everything else
-- Returns a clear reason when blocking ("Write operation blocked: git push requires confirmation")
-
-**Update Claude settings.json** with hook configuration and either a permissive allowlist (Option B) or minimal config (Option A).
-
-**Update `denv claude`** to pass `--dangerously-skip-permissions` if Option A is chosen.
-
-### How to Verify
-
-1. Start Claude in the container
-2. Ask Claude to read a GitHub repo (`gh api` GET) — should work without prompts
-3. Ask Claude to create a PR (`gh pr create`) — should be blocked with clear message
-4. Ask Claude to push code (`git push`) — should be blocked
-5. Ask Claude to install a package (`bun install express`) — should work
-6. Ask Claude to fetch a web page (`curl`, `WebFetch`) — should work
-7. Ask Claude to run arbitrary local commands — should work
-8. Test edge cases: `gh api -X POST`, `curl --request POST`, piped commands
+**Deviation from plan:** Used `permissionDecision: "ask"` (user confirmation prompt) instead of `"deny"` (hard block). This lets the user approve write operations case-by-case when they want Claude to push or create PRs. Also skipped gating `curl -X POST` — too many legitimate local uses and fragile to pattern-match.
 
 ---
 
