@@ -24,6 +24,23 @@ ensure_image() {
     fi
 }
 
+# Ensure a container exists and is running, return container name
+ensure_running() {
+    local project="$1"
+    local container
+    container="$(container_name "$project")"
+
+    if ! docker container inspect "$container" &>/dev/null; then
+        die "Container '$container' does not exist. Use 'denv create <path>' first."
+    fi
+
+    if [ "$(docker inspect -f '{{.State.Running}}' "$container")" != "true" ]; then
+        docker start "$container" >/dev/null
+    fi
+
+    echo "$container"
+}
+
 # --- Commands ---
 
 cmd_create() {
@@ -40,6 +57,7 @@ cmd_create() {
 
     ensure_image
 
+    echo "Creating container '$container' for $path..."
     docker run -d \
         --name "$container" \
         --hostname "$project" \
@@ -51,26 +69,63 @@ cmd_create() {
         --label "denv.path=$path" \
         --label "denv.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         "$DENV_IMAGE" \
-        sleep infinity
+        sleep infinity >/dev/null
 
-    echo "Created container '$container' for $path"
+    # --- Auth setup ---
+    echo ""
+    echo "=== GitHub Authentication ==="
+    echo "A browser window will open. Authenticate with GitHub."
+    echo ""
+    docker exec -it "$container" gh auth login \
+        --hostname github.com \
+        --git-protocol https \
+        --web \
+        --skip-ssh-key
+
+    echo ""
+    echo "=== Claude Authentication ==="
+    echo "A browser window will open. Authenticate with Claude."
+    echo ""
+    docker exec -it "$container" claude auth login
+
+    # --- Plugin setup ---
+    echo ""
+    echo "=== Installing Claude plugins ==="
+    docker exec "$container" /opt/denv/install-claude-plugins.sh
+
+    echo ""
+    echo "Container '$container' is ready."
+    echo "  denv $project        — open a shell"
+    echo "  denv claude $project — start Claude Code"
 }
 
 cmd_shell() {
     local project="${1:?Usage: denv shell <project>}"
     local container
-    container="$(container_name "$project")"
-
-    if ! docker container inspect "$container" &>/dev/null; then
-        die "Container '$container' does not exist. Use 'denv create <path>' first."
-    fi
-
-    # Start if stopped
-    if [ "$(docker inspect -f '{{.State.Running}}' "$container")" != "true" ]; then
-        docker start "$container" >/dev/null
-    fi
+    container="$(ensure_running "$project")"
 
     docker exec -it -e "DENV_PROJECT=$project" "$container" zsh
+}
+
+cmd_claude() {
+    local project="${1:?Usage: denv claude <project>}"
+    shift
+    local container
+    container="$(ensure_running "$project")"
+
+    docker exec -it -e "DENV_PROJECT=$project" "$container" claude "$@"
+}
+
+cmd_update_plugins() {
+    local project="${1:?Usage: denv update-plugins <project>}"
+    local container
+    container="$(ensure_running "$project")"
+
+    # Copy latest script from repo into container
+    docker cp "$DENV_DIR/scripts/install-claude-plugins.sh" \
+        "$container:/opt/denv/install-claude-plugins.sh"
+
+    docker exec "$container" /opt/denv/install-claude-plugins.sh
 }
 
 # --- Main ---
@@ -79,8 +134,16 @@ cmd="${1:-}"
 shift 2>/dev/null || true
 
 case "$cmd" in
-    create)  cmd_create "$@" ;;
-    shell)   cmd_shell "$@" ;;
-    "")      die "Usage: denv <command> [args]\n\nCommands:\n  create <path>    Create a container for a project\n  shell <project>  Open a shell in a container" ;;
-    *)       cmd_shell "$cmd" "$@" ;;  # denv <project> is shortcut for denv shell <project>
+    create)          cmd_create "$@" ;;
+    shell)           cmd_shell "$@" ;;
+    claude)          cmd_claude "$@" ;;
+    update-plugins)  cmd_update_plugins "$@" ;;
+    "")              die "Usage: denv <command> [args]
+
+Commands:
+  create <path>            Create a container for a project
+  shell <project>          Open a shell in a container
+  claude <project> [args]  Start Claude Code in a container
+  update-plugins <project> Update Claude plugins from latest script" ;;
+    *)               cmd_shell "$cmd" "$@" ;;  # denv <project> is shortcut for denv shell <project>
 esac
