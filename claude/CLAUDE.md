@@ -120,7 +120,7 @@ This container has Chromium pre-installed for headless-only operation. Two tools
 
 - **`WebFetch`** — fetches a summary of a web page. Use for broad research or deciding whether to fetch full content.
 - **`curl`** — raw HTTP responses. Use when you need the actual HTML/JSON/etc.
-- **`defuddle`** — not installed by default. If needed: `bun install -g defuddle-cli`. Extracts clean markdown from HTML pages.
+- **`defuddle`** — not installed by default. If needed: `bun install -g defuddle`. Extracts clean markdown from HTML pages.
 
 ## Skills & MCPs
 

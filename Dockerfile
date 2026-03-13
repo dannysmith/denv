@@ -103,7 +103,8 @@ ENV PLAYWRIGHT_MCP_BROWSER=chromium
 RUN bun install -g @playwright/cli \
     && PW_VERSION=$(node -e "console.log(require('/opt/bun/install/global/node_modules/playwright/package.json').version)") \
     && npx playwright@$PW_VERSION install --with-deps chromium \
-    && chmod -R o+rx /opt/playwright-browsers
+    && chmod -R o+rx /opt/playwright-browsers \
+    && chown -R dev:dev /opt/bun/install/global
 
 # Install rodney (headless Chrome automation CLI, needs Chrome from Playwright)
 USER dev
