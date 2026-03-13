@@ -87,7 +87,7 @@ Clipboard image paste does not work in container terminals. The practical workar
 
 ---
 
-## Phase 1: Base Repo & Dockerfile
+## Phase 1: Base Repo & Dockerfile [✅ DONE]
 
 ### Goal
 
@@ -146,16 +146,23 @@ Node.js and Bun are already installed from Phase 1. Verify they work correctly f
 
 ### Phase 2b: Python + uv
 
-- Install Python (latest stable) via apt (`python3`, `python3-venv`, `python3-pip`)
-- Install uv (Astral's Python package manager): `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- uv provides `uv` and `uvx` for running Python CLI tools without global installs
-- Verify: `python3 --version`, `uv --version`, `uvx --version`
+- Install uv via COPY from official distroless image: `COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/`
+- Install Python via uv: `uv python install` (no apt python3 needed — uv manages Python entirely)
+- This replaces python3, pip, venv, pyenv, pipx, poetry — uv handles all of it
+- `uvx` runs Python CLI tools on-demand without global installs; `uv tool install` for persistent global installs
+- Verify: `uv --version`, `python3 --version` (via uv-managed Python), `uvx --version`
 
 ### Phase 2c: Rust
 
 - Install Rust via rustup as the `dev` user: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`
 - This gives us `rustc`, `cargo`, and the ability to `cargo install` tools
 - Verify: `rustc --version`, `cargo --version`
+
+### Phase 2c2: Go
+
+- Install Go via official tarball from go.dev (the recommended method)
+- Useful beyond Go projects: many developer tools are written in Go (yq, rodney, lazygit, glow, etc.) and Claude can `go install` them on the fly
+- Verify: `go version`
 
 ### Phase 2d: CLI tools
 
@@ -166,19 +173,21 @@ Install via apt (all available in Ubuntu 24.04 repos):
 - `tree` — directory tree viewer
 - `ncdu` — ncurses disk usage analyzer (v1.x from apt; v2.x would need manual install)
 - `sqlite3` — SQLite CLI (~570 KB, minimal)
+- `libvips-tools` — image processing CLI (~50 MB with deps)
+- `miller` — CSV/JSON/tabular data processor (~33 MB)
 
-Install via direct binary download:
-- `yq` — YAML/JSON/XML processor. **Do NOT use apt** — the `yq` in apt is a different, unrelated Python tool. Download Mike Farah's Go binary from GitHub releases.
+Install via `go install`:
+- `yq` — YAML/JSON/XML processor. **Do NOT use apt** — the `yq` in apt is a different, unrelated Python tool. Install via `go install github.com/mikefarah/yq/v4@latest`
+- `rodney` — headless Chrome automation CLI (Simon Willison). Install via `go install github.com/simonw/rodney@latest`. Needs Chrome/Chromium (provided by Playwright step)
 
-Decide whether to include (may be large or niche — discuss with user):
-- `ffmpeg` — via apt, but pulls ~100+ MB of codec dependencies
-- `libvips-tools` — via apt, but pulls ~50+ MB of image processing dependencies
-- `miller` — via apt, ~33 MB (large Go binary). CSV/JSON/tabular data processor.
-- `dust` — not in apt. Install via cargo or download binary. Rust-based disk usage tool.
-- `tokei` — not in apt. Install via cargo or download binary. Code line counter.
-- `xsv` — **archived and unmaintained**. Consider `qsv` (actively maintained fork) or skip.
+Install via `uv tool install` (persistent global Python CLI tools):
+- `showboat` — executable markdown demo builder (Simon Willison)
+- `chartroom` — data-to-chart CLI using matplotlib (Simon Willison)
 
-Simon Willison's Python tools (install via `uvx` for on-demand use, or `uv tool install` for persistent global install)
+Not including:
+- `ffmpeg` — ~100+ MB of codec deps; can be apt-installed on demand in containers that need it
+- `xsv` — archived/unmaintained; miller + sqlite-utils covers CSV work
+- `dust` — ncdu covers disk usage analysis
 
 ### Phase 2e: Playwright + Chromium
 
