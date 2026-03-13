@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "Bash(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "MCP(context7:*)",
+      "MCP(playwright:*)",
+      "Skill(css-expert:*)",
+      "Skill(frontend-design:*)",
+      "Skill(playwright-cli:*)"
+    ]
+  },
+  "enabledPlugins": {
+    "css-expert@dannysmith": true,
+    "frontend-design@claude-plugins-official": true,
+    "playwright-cli@playwright-cli": true
+  },
+  "alwaysThinkingEnabled": true
+}

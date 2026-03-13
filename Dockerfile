@@ -127,6 +127,11 @@ COPY --chown=dev:dev dotfiles/zshrc /home/dev/.zshrc
 COPY --chown=dev:dev dotfiles/gitconfig /home/dev/.gitconfig
 COPY --chown=dev:dev dotfiles/gitignore_global /home/dev/.gitignore_global
 
+# Copy Claude Code config
+COPY --chown=dev:dev claude/CLAUDE.md /home/dev/.claude/CLAUDE.md
+COPY --chown=dev:dev claude/settings.json /home/dev/.claude/settings.json
+COPY --chown=dev:dev claude/.claude.json /home/dev/.claude.json
+
 ENV COLORTERM=truecolor
 
 USER dev
