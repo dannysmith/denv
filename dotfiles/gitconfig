@@ -17,7 +17,6 @@
 	stashed = stash list --pretty=format:'%gd: %Cred%h%Creset %Cgreen[%ar]%Creset %s'
 [core]
 	excludesfile = ~/.gitignore_global
-	autocrlf = input
 [merge]
 	summary = true
 [pull]
@@ -27,11 +26,7 @@
 [commit]
 	verbose = true
 [color]
-	ui = always
-	diff = auto
-	status = auto
-	branch = auto
-	interactive = auto
+	ui = auto
 [color "diff"]
 	meta = yellow bold
 	commit = green bold
@@ -39,11 +34,6 @@
 	old = red bold
 	new = green bold
 	whitespace = red reverse
-[color "diff-highlight"]
-	oldNormal = red
-	oldHighlight = "red bold 52"
-	newNormal = "green"
-	newHighlight = "green bold 22"
 [color "branch"]
 	current = yellow reverse
 	local = yellow
@@ -52,12 +42,6 @@
 	added = yellow
 	changed = green
 	untracked = cyan
-[url "git@github.com:"]
-	insteadOf = "gh:"
-	insteadOf = "git://github.com"
-	pushInsteadOf = "github:"
-	pushInsteadOf = "git://github.com/"
-	pushInsteadOf = "https://github.com/"
 [init]
 	defaultBranch = main
 [credential "https://github.com"]

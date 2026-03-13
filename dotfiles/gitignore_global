@@ -1,27 +1,6 @@
 ######################
-# macOS System Files #
+# Linux System Files #
 ######################
-
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-.AppleDouble
-.LSOverride
-Icon\?
-._.DS_Store
-
-########################
-# Windows System Files #
-########################
-
-ehthumbs.db
-Thumbs.db
-
-#########################
-# Linux System Files    #
-#########################
 
 .tags
 .tags1
@@ -38,7 +17,7 @@ Thumbs.db
 #*#
 
 ######################
-# Log & Temp Files    #
+# Log & Temp Files   #
 ######################
 
 *.log
@@ -49,7 +28,7 @@ Thumbs.db
 *.old
 
 ######################
-# Python Artifacts    #
+# Python Artifacts   #
 ######################
 
 __pycache__/
@@ -57,7 +36,7 @@ __pycache__/
 *.pyo
 
 ######################
-# Environment Files   #
+# Environment Files  #
 ######################
 
 .env
@@ -65,14 +44,7 @@ __pycache__/
 !.env.example
 
 ######################
-# Zsh                 #
-######################
-
-.zsh_history
-.zsh_sessions
-
-######################
-# Local Files
+# Local Files        #
 ######################
 
 .local
