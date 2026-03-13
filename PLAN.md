@@ -140,47 +140,118 @@ denv/
 
 Flesh out the base image with all required runtimes, CLI tools, and a sensible shell configuration. After this phase, shelling into a container should feel productive.
 
-### What to Build
+### Phase 2a: Node + Bun (verify existing setup)
 
-**Update Dockerfile** with full tool list:
+Node.js and Bun are already installed from Phase 1. Verify they work correctly for global tool installation (needed by later steps). Confirm `npx`/`bunx` work.
 
-Runtimes:
-- Node.js (latest stable via fnm) + Bun/bunx
-- Python (latest stable) + uv/uvx
-- Rust (via rustup, cargo)
+### Phase 2b: Python + uv
 
-CLI tools:
-- Already from Phase 1: git, gh, claude, curl, jq
-- Add: ripgrep, fd, bat, tree, unzip, ffmpeg, sqlite3, yq, miller, xsv, dust, ncdu, tokei, vips (libvips-tools)
-- Via bun/bunx: defuddle, @playwright/cli@latest
-- Via cargo: xsv, dust, tokei (if not available via apt — check availability)
-- Via pip/uv: sqlite-utils
-- Simon Willison's tools: showboat, rodney, chartroom (check install methods — likely pip/uv or bun)
-- Playwright - may need installing in addition to the playwright/cli along with Chromium?
-- 
-**Create dotfiles** (`dotfiles/` in repo):
-- `zshrc` — minimal but functional: prompt, basic aliases (`g`=git, etc.), PATH setup for all installed runtimes, fnm init, cargo env, bun paths
-- `gitconfig` — sensible defaults (pull rebase, verbose commits, `gh auth git-credential` for HTTPS auth, colors)
-- `gitignore_global` — standard ignores (OS files, editor files, env files, *.local and *.local.*)
+- Install Python (latest stable) via apt (`python3`, `python3-venv`, `python3-pip`)
+- Install uv (Astral's Python package manager): `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- uv provides `uv` and `uvx` for running Python CLI tools without global installs
+- Verify: `python3 --version`, `uv --version`, `uvx --version`
+
+### Phase 2c: Rust
+
+- Install Rust via rustup as the `dev` user: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`
+- This gives us `rustc`, `cargo`, and the ability to `cargo install` tools
+- Verify: `rustc --version`, `cargo --version`
+
+### Phase 2d: CLI tools
+
+Install via apt (all available in Ubuntu 24.04 repos):
+- `ripgrep` (binary: `rg`) — fast recursive grep
+- `fd-find` (binary: `fdfind`, needs symlink to `fd`) — fast file finder
+- `bat` (binary: `batcat`, needs symlink to `bat`) — cat with syntax highlighting
+- `tree` — directory tree viewer
+- `ncdu` — ncurses disk usage analyzer (v1.x from apt; v2.x would need manual install)
+- `sqlite3` — SQLite CLI (~570 KB, minimal)
+
+Install via direct binary download:
+- `yq` — YAML/JSON/XML processor. **Do NOT use apt** — the `yq` in apt is a different, unrelated Python tool. Download Mike Farah's Go binary from GitHub releases.
+
+Decide whether to include (may be large or niche — discuss with user):
+- `ffmpeg` — via apt, but pulls ~100+ MB of codec dependencies
+- `libvips-tools` — via apt, but pulls ~50+ MB of image processing dependencies
+- `miller` — via apt, ~33 MB (large Go binary). CSV/JSON/tabular data processor.
+- `dust` — not in apt. Install via cargo or download binary. Rust-based disk usage tool.
+- `tokei` — not in apt. Install via cargo or download binary. Code line counter.
+- `xsv` — **archived and unmaintained**. Consider `qsv` (actively maintained fork) or skip.
+
+Simon Willison's Python tools (install via `uvx` for on-demand use, or `uv tool install` for persistent global install)
+
+### Phase 2e: Playwright + Chromium
+
+- Install Playwright globally: `bun add -g playwright` (or `npm i -g playwright`)
+- Install Chromium browser binary + system deps: `npx playwright install --with-deps chromium`
+- The `--with-deps` flag runs `apt-get install` for all required shared libraries automatically
+- Install `@playwright/cli` for agent-friendly CLI commands (note: currently v0.1.1, pins to playwright alpha — may want to wait for stability)
+- Docker runtime considerations: container should use `--init` flag and `--ipc=host` (or larger `/dev/shm`) to prevent Chromium crashes
+- Total disk footprint: ~400-500 MB for Chromium + system deps
+- Verify: have Claude use Playwright inside the container to visit a website and extract data
+
+### Phase 2f: Dotfiles
+
+Create `dotfiles/` directory in repo with baseline config files. User will manually review and add personal aliases/preferences.
+
+- `zshrc` — PATH setup for all runtimes (fnm, cargo, bun, uv, ~/.local/bin), fnm init, basic aliases (`ls` with `--color=auto`, `g`=git, etc.), compinit for tab completion
+- `gitconfig` — pull rebase, verbose commits, `gh auth git-credential` for HTTPS auth, colors enabled
+- `gitignore_global` — OS files, editor files, env files, *.local and *.local.*
+
+### Phase 2g: Prompt, terminal colors & TUI support
+
+**Terminal/color setup**:
+- Install the `xterm-ghostty` terminfo entry in the image so `TERM=xterm-ghostty` works when connecting from Ghostty
+- Set `COLORTERM=truecolor` in the environment
+- Entrypoint or zshrc falls back gracefully to `xterm-256color` if the terminfo for the connecting terminal isn't present
+
+**Prompt** (replicating the user's local Oh My Zsh theme without OMZ):
+- Pure zsh prompt using `vcs_info` for git status (branch name, dirty indicator)
+- Style: newline, blue cwd, git info (red branch, dirty marker), newline, green/red arrow
+- Add a container indicator showing the denv project name (e.g. derived from container hostname or an env var)
+- No Oh My Zsh dependency — just zsh builtins and `vcs_info`
+
+current macos zsh prompt (loaded via oh-my-zsh custom theme)
+
+```sh
+NEWLINE=$'\n'
+
+PROMPT="${NEWLINE}%{$fg[blue]%}%~%{$reset_color%}"
+PROMPT+=' $(git_prompt_info)'
+PROMPT+="${NEWLINE}"
+PROMPT+='%(?:%{$fg_bold[green]%}%1{➜%} :%{$fg_bold[red]%}%1{➜%} ) '
+
+ZSH_THEME_GIT_PROMPT_PREFIX="%{$fg_bold[blue]%}(%{$fg[red]%}"
+ZSH_THEME_GIT_PROMPT_SUFFIX="%{$reset_color%} "
+ZSH_THEME_GIT_PROMPT_DIRTY="%{$fg[blue]%}) %{$fg[yellow]%}%1{✗%}"
+ZSH_THEME_GIT_PROMPT_CLEAN="%{$fg[blue]%})"
+```
+
+### Phase 2h: Entrypoint & home-template sync
 
 **Update entrypoint.sh** with version-stamp sync logic:
 - Bake dotfiles and config into `/opt/denv/home-template/` in the image
 - On container start, compare `/home/dev/.denv-version` with image version
 - If missing or outdated: copy template dotfiles into `/home/dev/`, update version stamp
 - Never overwrite: `.claude/` auth state, `.config/gh/` auth, `.zsh_history`, `.local/`, `.cargo/`, `.bun/`
+- User manually reviews the template files before finalizing
 
-**Create minimal `denv` script** (just enough for testing):
-- `denv create <path>` — runs `docker run` with correct mounts and naming
-- `denv shell <project>` — runs `docker exec -it` into existing container
+### Phase 2i: Minimal `denv` script (for testing)
+
+- `denv create <path>` — runs `docker run` with correct mounts, naming, `--init`, and `--ipc=host` flags
+- `denv shell <project>` — runs `docker exec -it` into existing container (starts it first if stopped)
 - Add to PATH or symlink for convenience
 
-### How to Verify
+### Phase 2j: Manual testing
 
-1. Rebuild image, recreate test container via `denv create ~/dev/test-project`
-2. `denv shell test-project`
-3. Verify all tools are available: `node --version`, `bun --version`, `python --version`, `rustc --version`, `uv --version`, `rg --version`, `fd --version`, `bat --version`, etc.
-4. Verify shell feels right: prompt works, aliases work, tab completion works
-5. Verify entrypoint sync: rebuild image with a dotfile change, restart container, confirm the change is picked up without losing auth state
+1. Rebuild image, create test container via `denv create`
+2. Verify all runtimes: `node`, `bun`, `python3`, `rustc`, `uv`, `cargo`
+3. Verify all CLI tools: `rg`, `fd`, `bat`, `tree`, `ncdu`, `sqlite3`, `yq`, etc.
+4. Verify Playwright: Claude session inside container uses Playwright to visit a website
+5. Verify OrbStack networking: run `python3 -m http.server 8000`, access from Mac via `<container>.orb.local:8000`
+6. Verify shell: prompt looks right, git info works, colors work, tab completion works
+7. Verify entrypoint sync: rebuild image with a dotfile change, restart container, confirm picked up without losing auth state
+8. Verify stop/start persistence of auth, history, installed tools
 
 ---
 
