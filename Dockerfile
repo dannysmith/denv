@@ -44,6 +44,9 @@ RUN mkdir -p -m 755 /etc/apt/keyrings \
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv (Python package manager — replaces pip, venv, pyenv, pipx)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 # Create non-root user 'dev' with UID 501 (matches macOS default) and zsh
 RUN groupadd -g 501 dev \
     && useradd -m -u 501 -g 501 -s /bin/zsh dev \
@@ -55,6 +58,13 @@ WORKDIR /tmp
 RUN curl -fsSL https://claude.ai/install.sh | bash
 USER root
 ENV PATH="/home/dev/.local/bin:${PATH}"
+
+# Install Python via uv to a shared location (not /home/dev, which is a named volume)
+ENV UV_PYTHON_INSTALL_DIR=/opt/python
+RUN uv python install \
+    && PYDIR=$(ls -1d /opt/python/cpython-3.*.* | head -1) \
+    && ln -s "$PYDIR/bin/python3" /usr/local/bin/python3 \
+    && ln -s "$PYDIR/bin/python3" /usr/local/bin/python
 
 # Copy entrypoint
 COPY scripts/entrypoint.sh /opt/denv/entrypoint.sh
