@@ -34,6 +34,7 @@ PLAN.md                    ← project plan with architecture docs and phase his
 - **Write-gating via hooks, not hard blocking.** The `gate-writes.sh` hook uses `permissionDecision: "ask"` (not `"deny"`), so the user can approve write operations case-by-case. The broad `Bash(*)` allow rule means everything local runs without prompts.
 - **Docker labels for metadata.** Container labels (`denv.project`, `denv.path`, `denv.created`) store all state needed for `denv rebuild` to recreate a container with the correct bind mount. No external state files.
 - **Single base image.** All containers share `denv-base`. Disk layers and page cache are shared across containers.
+- **`.orb.local` DNS uses mDNS.** OrbStack resolves container domains via Bonjour, not `/etc/resolver`. If `.orb.local` stops resolving (common after sleep/wake or VPN reconnects), flush the cache: `sudo killall -HUP mDNSResponder && sudo dscacheutil -flushcache`
 
 ## Working on this project
 

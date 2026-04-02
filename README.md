@@ -54,7 +54,7 @@ All containers share a single base image (`denv-base`). The image is built from 
 
 - **Bind mount**: project directory from Mac to `/workspace` in the container
 - **No home volume**: `/home/dev` is baked into the image with standard paths for all runtimes. This means `denv rebuild` resets auth and shell history, but tool installation paths just work.
-- **Networking**: OrbStack gives each container a `denv-<project>.orb.local` domain — access dev servers at e.g. `denv-my-project.orb.local:3000` with no port mapping needed.
+- **Networking**: OrbStack gives each container a `denv-<project>.orb.local` domain — access dev servers at e.g. `denv-my-project.orb.local:3000` with no port mapping needed. If `.orb.local` domains stop resolving (common after sleep/wake or VPN reconnects), flush the DNS cache: `sudo killall -HUP mDNSResponder && sudo dscacheutil -flushcache`
 
 ### What's in the image
 
