@@ -16,10 +16,16 @@ container_name() {
     echo "denv-$1"
 }
 
-# Build the base image if it doesn't exist (or force rebuild)
+# Build the base image if it doesn't exist. A forced rebuild pulls fresh base
+# images and skips the layer cache, so apt packages and the runtimes installed
+# from the internet (Node, Bun, uv, Rust, Go, Claude Code) are always current
+# rather than reused from old layers.
 ensure_image() {
     local force="${1:-}"
-    if [ "$force" = "force" ] || ! docker image inspect "$DENV_IMAGE" &>/dev/null; then
+    if [ "$force" = "force" ]; then
+        echo "Rebuilding $DENV_IMAGE image from scratch (--pull --no-cache)..."
+        docker build --pull --no-cache -t "$DENV_IMAGE" "$DENV_DIR"
+    elif ! docker image inspect "$DENV_IMAGE" &>/dev/null; then
         echo "Building $DENV_IMAGE image..."
         docker build -t "$DENV_IMAGE" "$DENV_DIR"
     fi
