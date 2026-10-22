@@ -34,7 +34,7 @@ denv claude my-project
 | `denv start <project>` | Start a stopped container. |
 | `denv stop <project>` | Stop a running container. |
 | `denv rm <project>` | Remove a container (project files on Mac are untouched). |
-| `denv rebuild [project]` | Rebuild the base image. If a project is specified, recreate that container from the new image. |
+| `denv rebuild [project]` | Rebuild the base image from scratch (fresh base images, no layer cache), so system packages and runtimes are current. If a project is specified, recreate that container from the new image. |
 | `denv ls` | List all denv containers with status and project path. |
 | `denv scaffold <name> [path]` | Create a new project at `<path>/<name>` (default `~/dev/<name>`) with template files, `git init`, and a container. |
 | `denv update-plugins <project>` | Copy the latest plugin install script into the container and run it. |
